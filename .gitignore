@@ -1,0 +1,31 @@
+notes.txt  
+prompt.txt
+
+# Terraform core files
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Terraform directories
+.terraform/
+*.tfplan
+
+# CLI config
+.terraform.lock.hcl
+
+# Variable files (can contain secrets)
+terraform.tfvars
+terraform.tfvars.json
+
+# Ignore override files
+override.tf
+override.tf.json
+
+# Local shell history
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
