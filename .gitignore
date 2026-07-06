@@ -30,5 +30,6 @@ Thumbs.db
 #personal notes and ssh keys
 notes.txt  
 prompt.txt
-lab10-key
-lab10-key.pub
+.pub
+startuphub-dev-key  
+startuphub-dev-key.pub

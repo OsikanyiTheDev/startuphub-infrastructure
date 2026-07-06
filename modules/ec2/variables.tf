@@ -28,3 +28,8 @@ variable "key_name" {
     description = "Key pair name for SSH access"
     type        = string
 }
+
+variable "public_key_path" {
+    description = "Path to the public key file for the key pair"
+    type        = string
+}
