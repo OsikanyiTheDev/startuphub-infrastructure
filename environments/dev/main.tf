@@ -22,11 +22,12 @@ module "security" {
   http_cidr = var.http_cidr
 }
 
-module "ec2" {
-  source = "../../modules/ec2"
+module "compute" {
+  source = "../../modules/compute"
 
   name              = "startuphub-dev"
-  ami_id            = "ami-0d28727121d5d4a3c" # Ubuntu 22.04/24.x depending region
+  ami_id            = var.ami_id
+  instance_type     = var.instance_type
   subnet_id         = module.networking.public_subnet_1_id
   security_group_id = module.security.security_group_id
   key_name          = "startuphub-dev-key"

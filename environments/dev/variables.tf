@@ -30,3 +30,15 @@ variable "key_name" {
   type        = string
   description = "SSH key pair name"
 }
+
+variable "ami_id" {
+  type        = string
+  description = "The AMI ID to use for the EC2 instance"
+  default     = "ami-0d28727121d5d4a3c" # Ubuntu 22.04/24.x depending region
+  }
+
+variable "instance_type" {
+  type        = string
+  description = "The instance type for the EC2 instance"
+  default     = "t3.micro"
+}
