@@ -1,10 +1,32 @@
+variable "vpc_cidr" {
+  type = string
+}
+
+variable "public_subnet_1_cidr" {
+  type = string
+}
+
+variable "public_subnet_2_cidr" {
+  type = string
+}
+
+variable "private_subnet_1_cidr" {
+  type = string
+}
+
+variable "private_subnet_2_cidr" {
+  type = string
+}
+
 variable "ssh_cidr" {
-    description = "The CIDR block for SSH access."
-    type        = list(string)
+  type = list(string)
 }
 
 variable "http_cidr" {
-    description = "The CIDR block for HTTP access."
-    type        = list(string)
-    default     = ["0.0.0.0/0"]
+  type = list(string)
+}
+
+variable "key_name" {
+  type = string
+  description = "SSH key pair name"
 }

@@ -1,6 +1,3 @@
-notes.txt  
-prompt.txt
-
 # Terraform core files
 *.tfstate
 *.tfstate.*
@@ -29,3 +26,9 @@ override.tf.json
 # OS files
 .DS_Store
 Thumbs.db
+
+#personal notes and ssh keys
+notes.txt  
+prompt.txt
+lab10-key
+lab10-key.pub
