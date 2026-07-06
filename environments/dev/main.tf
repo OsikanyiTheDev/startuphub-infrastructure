@@ -1,25 +1,25 @@
 module "networking" {
-    source = "../../modules/networking"
+  source = "../../modules/networking"
 
-    project_name = "startuphub-dev"
+  project_name = "startuphub-dev"
 
-    vpc_cidr              = var.vpc_cidr
+  vpc_cidr = var.vpc_cidr
 
-    public_subnet_1_cidr  = var.public_subnet_1_cidr
-    public_subnet_2_cidr  = var.public_subnet_2_cidr
+  public_subnet_1_cidr = var.public_subnet_1_cidr
+  public_subnet_2_cidr = var.public_subnet_2_cidr
 
-    private_subnet_1_cidr = var.private_subnet_1_cidr
-    private_subnet_2_cidr = var.private_subnet_2_cidr
+  private_subnet_1_cidr = var.private_subnet_1_cidr
+  private_subnet_2_cidr = var.private_subnet_2_cidr
 }
 module "security" {
-    source = "../../modules/security"
+  source = "../../modules/security"
 
-    name     = "startuphub-dev"
-    vpc_id   = module.networking.vpc_id
+  name   = "startuphub-dev"
+  vpc_id = module.networking.vpc_id
 
 
-    ssh_cidr = var.ssh_cidr
-    http_cidr = var.http_cidr
+  ssh_cidr  = var.ssh_cidr
+  http_cidr = var.http_cidr
 }
 
 module "ec2" {

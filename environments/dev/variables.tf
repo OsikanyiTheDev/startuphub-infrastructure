@@ -27,6 +27,6 @@ variable "http_cidr" {
 }
 
 variable "key_name" {
-  type = string
+  type        = string
   description = "SSH key pair name"
 }
