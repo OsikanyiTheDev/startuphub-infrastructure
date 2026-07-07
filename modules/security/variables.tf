@@ -17,3 +17,8 @@ variable "http_cidr" {
   description = "The CIDR block for HTTP access."
   type        = list(string)
 }
+
+variable "https_cidr" {
+  description = "The CIDR block for HTTPS access."
+  type        = list(string)
+}

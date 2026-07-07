@@ -13,12 +13,7 @@ variable "instance_type" {
   type        = string
 }
 
-variable "subnet_id" {
-    description = "Public subnet ID"
-    type       = string
-}
-
-variable "security_group_id" {
+variable "ec2_security_group_id" {
     description = "Security group ID"
     type       = string
 }
