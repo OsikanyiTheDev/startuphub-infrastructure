@@ -5,7 +5,7 @@ resource "aws_autoscaling_group" "this" {
     min_size             = var.min_size
     max_size             = var.max_size
 
-    vpc_zone_identifier  = var.public_subnet_ids
+    vpc_zone_identifier = var.private_subnet_ids
 
     launch_template {
         id      = var.launch_template_id

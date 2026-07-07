@@ -13,9 +13,9 @@ variable "launch_template_version" {
     type        = string
 }
 
-variable "public_subnet_ids" {
-    description = "Public subnet IDs"
-    type        = list(string)
+variable "private_subnet_ids" {
+  description = "Private subnet IDs for the Auto Scaling Group"
+  type        = list(string)
 }
 
 variable "desired_capacity" {

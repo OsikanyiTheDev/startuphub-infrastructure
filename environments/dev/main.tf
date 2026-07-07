@@ -63,9 +63,9 @@ module "autoscaling" {
   launch_template_id      = module.compute.launch_template_id
   launch_template_version = module.compute.launch_template_latest_version
 
-  public_subnet_ids = [
-    module.networking.public_subnet_1_id,
-    module.networking.public_subnet_2_id
+  private_subnet_ids = [
+    module.networking.private_subnet_1_id,
+    module.networking.private_subnet_2_id
   ]
 
   target_group_arns = [
