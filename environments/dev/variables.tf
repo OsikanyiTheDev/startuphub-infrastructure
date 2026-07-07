@@ -25,11 +25,11 @@ variable "ssh_cidr" {
   type = list(string)
 }
 
-variable "http_cidr" {
+variable "alb_http_cidr" {
   type = list(string)
 }
 
-variable "https_cidr" {
+variable "alb_https_cidr" {
   type = list(string)
 }
 
@@ -61,4 +61,9 @@ variable "min_size" {
 variable "max_size" {
   type        = number
   description = "Maximum size of the autoscaling group"
+}
+
+variable "enable_deletion_protection" {
+  description = "Enable ALB deletion protection"
+  type        = bool
 }

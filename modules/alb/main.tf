@@ -8,7 +8,7 @@ resource "aws_lb" "this" {
 
     subnets            = var.public_subnet_ids
 
-    enable_deletion_protection = false
+    enable_deletion_protection = var.enable_deletion_protection
 
     tags = {
         Name = "${var.name}-alb"

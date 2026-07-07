@@ -1,29 +1,37 @@
 variable "name" {
-  description = "Name prefix for the EC2 instance"
-  type        = string
+  description = "Name prefix for resources"
+  type = string
 }
+
 
 variable "ami_id" {
-  description = "The AMI ID to use for the EC2 instance"
-  type        = string
+  description = "AMI ID for instances"
+  type = string
 }
+
 
 variable "instance_type" {
-  description = "The instance type for the EC2 instance"
-  type        = string
+  description = "EC2 instance type"
+  type = string
 }
+
+
 
 variable "ec2_security_group_id" {
-    description = "Security group ID"
-    type       = string
+  description = "Security group attached to EC2 instances"
+  type = string
 }
+
+
 
 variable "key_name" {
-    description = "Key pair name for SSH access"
-    type        = string
+  description = "AWS key pair name"
+  type = string
 }
 
+
+
 variable "public_key_path" {
-    description = "Path to the public key file for the key pair"
-    type        = string
+  description = "Path to public SSH key"
+  type = string
 }

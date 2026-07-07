@@ -18,9 +18,9 @@ module "security" {
   vpc_id = module.networking.vpc_id
 
 
-  ssh_cidr   = var.ssh_cidr
-  http_cidr  = var.http_cidr
-  https_cidr = var.https_cidr
+  ssh_cidr       = var.ssh_cidr
+  alb_http_cidr  = var.alb_http_cidr
+  alb_https_cidr = var.alb_https_cidr
 }
 
 module "compute" {
@@ -47,6 +47,8 @@ module "alb" {
     module.networking.public_subnet_1_id,
     module.networking.public_subnet_2_id
   ]
+  enable_deletion_protection = var.enable_deletion_protection
+
   alb_security_group_id = module.security.alb_security_group_id
 }
 

@@ -23,4 +23,8 @@ resource "aws_autoscaling_group" "this" {
         propagate_at_launch = true
     }
     target_group_arns = var.target_group_arns
+
+    termination_policies = [
+        "OldestInstance"
+    ]
 }

@@ -14,7 +14,7 @@ resource "aws_security_group" "alb" {
         from_port = 80
         to_port = 80
         protocol = "tcp"
-        cidr_blocks = var.http_cidr
+        cidr_blocks = var.alb_http_cidr
     }
 
     # HTTP acess (environment controlled)
@@ -23,7 +23,7 @@ resource "aws_security_group" "alb" {
         from_port = 443
         to_port = 443
         protocol = "tcp"
-        cidr_blocks = var.https_cidr
+        cidr_blocks = var.alb_https_cidr
     }
 
     egress {
@@ -44,7 +44,7 @@ resource "aws_security_group" "alb" {
 #######################################
 resource "aws_security_group" "ec2" {
     name       = "${var.name}-ec2-sg"
-    description = "Security group for ${var.name}"
+    description = "Allows application traffic from ALB and administrative SSH access"
     vpc_id     = var.vpc_id
 
 
