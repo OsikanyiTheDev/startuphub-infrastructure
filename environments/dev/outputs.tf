@@ -18,14 +18,14 @@ output "private_subnet_2_id" {
   value = module.networking.private_subnet_2_id
 }
 
-output "instance_id" {
-  value = module.compute.instance_id
+output "alb_dbs_name" {
+  value = module.alb.alb_dns_name
 }
 
-output "public_ip" {
-  value = module.compute.public_ip
+output "lanuch_template_id" {
+  value = module.compute.launch_template_id
 }
 
-output "public_dns" {
-  value = module.compute.public_dns
+output "autoscaling_group_name" {
+  value = module.autoscaling.autoscaling_group_name
 }

@@ -1,3 +1,6 @@
+variable "project_name" {
+  type = string
+}
 variable "vpc_cidr" {
   type = string
 }
@@ -26,6 +29,10 @@ variable "http_cidr" {
   type = list(string)
 }
 
+variable "https_cidr" {
+  type = list(string)
+}
+
 variable "key_name" {
   type        = string
   description = "SSH key pair name"
@@ -34,11 +41,24 @@ variable "key_name" {
 variable "ami_id" {
   type        = string
   description = "The AMI ID to use for the EC2 instance"
-  default     = "ami-0d28727121d5d4a3c" # Ubuntu 22.04/24.x depending region
-  }
+}
 
 variable "instance_type" {
   type        = string
   description = "The instance type for the EC2 instance"
-  default     = "t3.micro"
+}
+
+variable "desired_capacity" {
+    type        = number
+    description = "Desired capacity of the autoscaling group"
+}
+
+variable "min_size" {
+    type        = number
+    description = "Minimum size of the autoscaling group"
+}
+
+variable "max_size" {
+    type        = number
+    description = "Maximum size of the autoscaling group"
 }
