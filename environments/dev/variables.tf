@@ -49,16 +49,16 @@ variable "instance_type" {
 }
 
 variable "desired_capacity" {
-    type        = number
-    description = "Desired capacity of the autoscaling group"
+  type        = number
+  description = "Desired capacity of the autoscaling group"
 }
 
 variable "min_size" {
-    type        = number
-    description = "Minimum size of the autoscaling group"
+  type        = number
+  description = "Minimum size of the autoscaling group"
 }
 
 variable "max_size" {
-    type        = number
-    description = "Maximum size of the autoscaling group"
+  type        = number
+  description = "Maximum size of the autoscaling group"
 }

@@ -18,8 +18,8 @@ module "security" {
   vpc_id = module.networking.vpc_id
 
 
-  ssh_cidr  = var.ssh_cidr
-  http_cidr = var.http_cidr
+  ssh_cidr   = var.ssh_cidr
+  http_cidr  = var.http_cidr
   https_cidr = var.https_cidr
 }
 
@@ -42,12 +42,12 @@ module "alb" {
 
   name = var.project_name
 
-  vpc_id             = module.networking.vpc_id
-  public_subnet_ids  = [
-    module.networking.public_subnet_1_id, 
+  vpc_id = module.networking.vpc_id
+  public_subnet_ids = [
+    module.networking.public_subnet_1_id,
     module.networking.public_subnet_2_id
-    ]
-  alb_security_group_id  = module.security.alb_security_group_id
+  ]
+  alb_security_group_id = module.security.alb_security_group_id
 }
 
 
