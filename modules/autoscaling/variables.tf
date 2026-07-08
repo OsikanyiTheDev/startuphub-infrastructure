@@ -37,3 +37,7 @@ variable "target_group_arns" {
     description = "target group of the arn"
     type = list(string)
 }
+
+variable "force_delete" {
+  type = bool
+}
