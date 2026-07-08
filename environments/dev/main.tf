@@ -10,6 +10,9 @@ module "networking" {
 
   private_subnet_1_cidr = var.private_subnet_1_cidr
   private_subnet_2_cidr = var.private_subnet_2_cidr
+
+  private_db_subnet_1_cidr = var.private_db_subnet_1_cidr
+  private_db_subnet_2_cidr = var.private_db_subnet_2_cidr
 }
 module "security" {
   source = "../../modules/security"
