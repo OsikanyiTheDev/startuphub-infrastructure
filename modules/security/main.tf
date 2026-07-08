@@ -73,3 +73,43 @@ resource "aws_security_group" "ec2" {
     }
 }
 
+
+
+resource "aws_security_group" "rds" {
+    name = "${var.name}-rds-sg"
+    description = "Allos PostgreSQL acess only from the EC2 instances"
+
+    vpc_id = var.vpc_id
+
+    ################################
+    # PostgreSQL from EC2 only
+    ################################
+    ingress {
+        description = "PostgreSQL from EC2"
+        from_port = 5432
+        to_port = 5432
+        protocol = "tcp"
+        security_groups = [
+            aws_security_group.ec2.id
+        ]
+    }
+
+    ################################
+    # Outbound
+    ################################
+    egress {
+        description = "All outbound traffic"
+        from_port = 0
+        to_port = 0
+        protocol = "-1"
+        cidr_blocks = [
+            "0.0.0.0/0"
+        ]
+    }
+
+    tags = {
+        Name = "${var.name}-rds-sg"
+    }
+
+
+}
