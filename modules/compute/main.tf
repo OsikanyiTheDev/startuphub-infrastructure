@@ -44,7 +44,7 @@ resource "aws_launch_template" "this" {
 
   metadata_options {
     http_endpoint = "enabled"
-    http_tokens = "requird"
+    http_tokens = "required"
   }
 
   update_default_version = true
