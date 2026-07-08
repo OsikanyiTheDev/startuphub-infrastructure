@@ -76,9 +76,9 @@ module "autoscaling" {
   min_size         = var.min_size
   max_size         = var.max_size
 
-  depends_on = [ 
-    module.alb 
-    ]
+  depends_on = [
+    module.alb
+  ]
 
   force_delete = var.force_delete
 
