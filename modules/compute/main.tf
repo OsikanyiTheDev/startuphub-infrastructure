@@ -27,6 +27,10 @@ resource "aws_launch_template" "this" {
     file("${path.module}/user_data.sh")
   )
 
+  iam_instance_profile {
+    name = aws_iam_instance_profile.ec2.name
+  }
+
   block_device_mappings {
     device_name = "/dev/sda1"
     ebs {

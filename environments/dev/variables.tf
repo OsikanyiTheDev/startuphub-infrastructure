@@ -21,10 +21,6 @@ variable "private_subnet_2_cidr" {
   type = string
 }
 
-variable "ssh_cidr" {
-  type = list(string)
-}
-
 variable "alb_http_cidr" {
   type = list(string)
 }

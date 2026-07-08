@@ -18,7 +18,6 @@ module "security" {
   vpc_id = module.networking.vpc_id
 
 
-  ssh_cidr       = var.ssh_cidr
   alb_http_cidr  = var.alb_http_cidr
   alb_https_cidr = var.alb_https_cidr
 }

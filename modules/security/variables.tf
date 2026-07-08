@@ -8,11 +8,6 @@ variable "vpc_id" {
   type        = string
 }
 
-variable "ssh_cidr" {
-  description = "The CIDR block for SSH access."
-  type        = list(string)
-}
-
 variable "alb_http_cidr" {
   description = "The CIDR block for HTTP access."
   type        = list(string)

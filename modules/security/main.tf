@@ -48,16 +48,6 @@ resource "aws_security_group" "ec2" {
     vpc_id     = var.vpc_id
 
 
-    #SSH access restricted 
-    ingress {
-        description = "SSH"
-        from_port   = 22
-        to_port     = 22
-        protocol    = "tcp"
-        cidr_blocks = var.ssh_cidr
-    }
-
-
     #HTTP access ( from ALB)
     ingress {
         description = "HTTP from ALB"
