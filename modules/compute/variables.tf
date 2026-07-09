@@ -17,3 +17,8 @@ variable "ec2_security_group_id" {
   description = "Security group attached to EC2 instances"
   type = string
 }
+
+variable "rds_secret_arn" {
+  description = "ARN of the RDS Secrets Manager secret"
+  type = string
+}

@@ -34,6 +34,7 @@ module "compute" {
   instance_type = var.instance_type
 
   ec2_security_group_id = module.security.ec2_security_group_id
+  rds_secret_arn        = module.rds.master_user_secret_arn
 }
 
 module "alb" {
