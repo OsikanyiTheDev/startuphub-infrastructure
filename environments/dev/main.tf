@@ -34,9 +34,6 @@ module "compute" {
   instance_type = var.instance_type
 
   ec2_security_group_id = module.security.ec2_security_group_id
-
-  key_name        = var.key_name
-  public_key_path = "../../keys/${var.key_name}.pub"
 }
 
 module "alb" {
@@ -84,4 +81,34 @@ module "autoscaling" {
 
   force_delete = var.force_delete
 
+}
+
+module "rds" {
+  source = "../../modules/rds"
+
+  name = var.project_name
+
+  subnet_ids = [
+    module.networking.private_db_subnet_1_id,
+    module.networking.private_db_subnet_2_id
+  ]
+
+  security_group_ids = [
+    module.security.rds_security_group_id
+  ]
+
+  engine = var.db_engine
+
+  engine_version = var.db_engine_version
+  instance_class = var.db_instance_class
+
+  allocated_storage = var.db_allocated_storage
+
+  database_name = var.db_name
+  username      = var.db_username
+
+  multi_az = var.db_multi_az
+
+  publicly_accessible = var.db_publicly_accessible
+  deletion_protection = var.db_deletion_protection
 }

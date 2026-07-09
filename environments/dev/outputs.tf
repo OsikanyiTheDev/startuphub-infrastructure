@@ -34,3 +34,7 @@ output "target_group_arn" {
   description = "ARN of the ALB Target Group"
   value       = module.alb.target_group_arn
 }
+
+output "rds_secret_arn" {
+  value = module.rds.master_user_secret_arn
+}

@@ -42,10 +42,6 @@ variable "private_db_subnet_2_cidr" {
   type = string
 }
 
-variable "ssh_cidr" {
-  type = list(string)
-}
-
 variable "alb_http_cidr" {
   type = list(string)
 }
@@ -54,10 +50,6 @@ variable "alb_https_cidr" {
   type = list(string)
 }
 
-variable "key_name" {
-  type        = string
-  description = "SSH key pair name"
-}
 
 variable "ami_id" {
   type        = string
@@ -90,5 +82,34 @@ variable "enable_deletion_protection" {
 }
 
 variable "force_delete" {
+  type = bool
+}
+
+variable "db_engine" {
+  type = string
+}
+variable "db_engine_version" {
+  type = string
+}
+variable "db_instance_class" {
+  type = string
+}
+variable "db_allocated_storage" {
+  type = number
+}
+variable "db_name" {
+  type = string
+}
+variable "db_username" {
+  type = string
+}
+
+variable "db_multi_az" {
+  type = bool
+}
+variable "db_publicly_accessible" {
+  type = bool
+}
+variable "db_deletion_protection" {
   type = bool
 }

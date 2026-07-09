@@ -44,7 +44,7 @@ resource "aws_security_group" "alb" {
 #######################################
 resource "aws_security_group" "ec2" {
     name       = "${var.name}-ec2-sg"
-    description = "Allows application traffic from ALB and administrative SSH access"
+    description = "Allows application traffic from ALB only"
     vpc_id     = var.vpc_id
 
 
