@@ -476,6 +476,7 @@ This project demonstrates practical experience with:
 
 # Author
 
-**Osikanyi Nana Yaw Essandoh**
+**Osikanyi Essandoh**
+**OsikanyiTheDev**
 
 Cloud Engineering / DevOps Portfolio Project
