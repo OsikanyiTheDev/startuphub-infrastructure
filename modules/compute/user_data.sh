@@ -16,4 +16,3 @@ cat <<HTML >/var/www/html/index.html
 </body>
 </html>
 HTML
-EOF

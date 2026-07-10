@@ -2,6 +2,11 @@ variable "project_name" {
   type = string
 }
 
+variable "region" {
+  type = string
+
+}
+
 variable "vpc_cidr" {
   type = string
 }
@@ -111,5 +116,14 @@ variable "db_publicly_accessible" {
   type = bool
 }
 variable "db_deletion_protection" {
+  type = bool
+}
+
+# ECR
+variable "ecr_image_tag_mutability" {
+  type = string
+}
+
+variable "ecr_scan_on_push" {
   type = bool
 }

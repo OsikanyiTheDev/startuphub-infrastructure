@@ -7,6 +7,7 @@ crash.*.log
 # Terraform directories
 .terraform/
 *.tfplan
+tfplan
 
 # CLI config
 .terraform.lock.hcl
@@ -30,6 +31,3 @@ Thumbs.db
 #personal notes and ssh keys
 notes.txt  
 prompt.txt
-.pub
-startuphub-dev-key  
-startuphub-dev-key.pub

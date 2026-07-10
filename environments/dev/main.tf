@@ -113,3 +113,11 @@ module "rds" {
   publicly_accessible = var.db_publicly_accessible
   deletion_protection = var.db_deletion_protection
 }
+
+module "ecr" {
+  source = "../../modules/ecr"
+
+  project_name         = var.project_name
+  image_tag_mutability = var.ecr_image_tag_mutability
+  scan_on_push         = var.ecr_scan_on_push
+}
