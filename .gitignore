@@ -31,3 +31,10 @@ Thumbs.db
 #personal notes and ssh keys
 notes.txt  
 prompt.txt
+.pub
+startuphub-dev-key  
+startuphub-dev-key.pub
+
+# Node.js
+node_modules/
+npm-debug.log*
