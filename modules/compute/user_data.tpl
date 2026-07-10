@@ -68,7 +68,7 @@ SECRET_JSON=$(aws secretsmanager get-secret-value \
     --query SecretString \
     --output text)
 
-DB_PASSWORD=$$(echo $$SECRET_JSON | jq -r '.password')
+DB_PASSWORD=$(echo $SECRET_JSON | jq -r '.password')
 echo "Database credentials retrieved"
 
 # Run the application container
@@ -81,7 +81,7 @@ docker run -d \
     -e DB_PORT=${rds_port} \
     -e DB_NAME=${rds_db_name} \
     -e DB_USER=${rds_db_user} \
-    -e DB_PASSWORD=$$DB_PASSWORD \
+    -e DB_PASSWORD=$DB_PASSWORD \
     ${ecr_repository_url}:${image_tag}
 
 echo "Container started successfully"
