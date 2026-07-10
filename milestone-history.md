@@ -1,8 +1,363 @@
 
 
-# v0.3.1 - Secure Rebuild Validation (Current)
+# v0.4.0 - Docker & ECR Integration (Current)
 
 **Date:** July 2026
+
+## Overview
+
+Transitioned from static Nginx user_data to a full containerized application deployment pipeline.
+
+The infrastructure now provisions an Amazon ECR repository, and EC2 instances automatically pull and run a Docker container at launch. The application connects to the PostgreSQL RDS instance using credentials fetched from AWS Secrets Manager at runtime.
+
+A two-phase deployment strategy eliminates the race condition between image availability and instance launch.
+
+---
+
+# New Module: ECR
+
+Added a new `modules/ecr/` module that creates the Amazon Elastic Container Registry repository.
+
+```
+modules/ecr/
+├── main.tf        # aws_ecr_repository resource
+├── variables.tf   # project_name, image_tag_mutability, scan_on_push
+└── outputs.tf     # repository_url, repository_name, repository_arn
+```
+
+Configuration is fully explicit — no defaults in the module. All values are declared in `environments/dev/terraform.tfvars`.
+
+---
+
+# Docker Application
+
+Created a production-style Task Manager application:
+
+```
+app/
+├── Dockerfile       # Multi-stage build, non-root user, health check
+├── package.json     # Node.js + Express + pg
+└── server.js        # REST API with PostgreSQL connection
+```
+
+Features:
+- Health check endpoint (`/`) returns 200 for ALB
+- Task CRUD API (`/api/tasks`)
+- Auto-creates `tasks` table on startup
+- Database connection via environment variables
+- Multi-stage Dockerfile for minimal image size
+- Runs as non-root user (`appuser`)
+
+---
+
+# Build & Push Automation Script
+
+Added `scripts/build-and-push.sh` for automated Docker image deployment:
+
+```bash
+./scripts/build-and-push.sh <environment> <dockerfile_dir> [image_tag]
+
+# Example:
+./scripts/build-and-push.sh dev ./app latest
+```
+
+The script:
+1. Validates prerequisites (AWS CLI, Docker, Terraform)
+2. Reads ECR repository URL from Terraform output
+3. Authenticates with ECR using AWS CLI
+4. Builds the Docker image
+5. Tags and pushes to ECR
+
+---
+
+# Compute Module Updates
+
+Converted `user_data.sh` to `user_data.tpl` (Terraform template file).
+
+The user_data script now:
+1. Installs Docker and AWS CLI v2
+2. Authenticates to ECR using the EC2 IAM role (no hardcoded credentials)
+3. Pulls the latest Docker image from ECR
+4. Fetches the database password from Secrets Manager
+5. Runs the container with all required environment variables
+
+New variables added to the compute module:
+- `ecr_repository_url`
+- `aws_region`
+- `image_tag`
+- `rds_endpoint`
+- `rds_port`
+- `rds_db_name`
+- `rds_db_user`
+
+All values passed explicitly from the environment layer — no defaults in the module.
+
+---
+
+# IAM Updates
+
+Attached `AmazonEC2ContainerRegistryReadOnly` policy to the EC2 IAM role.
+
+The EC2 instance can now pull images from ECR using only its IAM role. No access keys, no hardcoded credentials.
+
+```
+EC2 Instance
+      |
+      |
+IAM Instance Profile
+      |
+      |
+EC2 IAM Role
+      |
+      ├── AmazonSSMManagedInstanceCore
+      ├── AmazonEC2ContainerRegistryReadOnly
+      └── RDS Secret Access Policy (scoped)
+```
+
+---
+
+# Two-Phase Deployment Strategy
+
+To eliminate the race condition between image availability and instance launch, the infrastructure uses a two-phase deployment approach.
+
+## Phase 1: Create Infrastructure
+
+```bash
+cd environments/dev
+terraform apply
+```
+
+With `desired_capacity = 0` in `terraform.tfvars`:
+- ECR repository is created
+- Launch template is created
+- ASG is created (but with 0 instances)
+- RDS is provisioned
+- No EC2 instances launch yet
+
+## Phase 2: Push Docker Image
+
+```bash
+./scripts/build-and-push.sh dev ./app latest
+```
+
+- Docker image is built
+- Image is pushed to ECR
+- Image now exists in the repository
+
+## Phase 3: Launch EC2 Instances
+
+Update `terraform.tfvars`:
+```hcl
+desired_capacity = 2
+min_size         = 2
+```
+
+```bash
+terraform apply
+```
+
+- ASG launches EC2 instances
+- Instances pull image from ECR (image exists)
+- Containers start and connect to RDS
+- ALB health checks pass
+- Application is live
+
+---
+
+# Deployment Data Flow
+
+```
+terraform apply (Phase 1)
+        |
+        ├── Create ECR Repository
+        ├── Create Launch Template
+        ├── Create ASG (0 instances)
+        ├── Create RDS
+        └── Create IAM Roles
+              |
+              v
+./scripts/build-and-push.sh (Phase 2)
+              |
+              └── Push Docker Image to ECR
+              |
+              v
+terraform apply (Phase 3: desired_capacity = 2)
+              |
+              └── ASG Launches EC2
+                    |
+                    ├── Install Docker
+                    ├── Authenticate to ECR (IAM role)
+                    ├── Pull Image from ECR
+                    ├── Fetch DB Password (Secrets Manager)
+                    ├── Run Container
+                    └── ALB Health Check Passes ✅
+```
+
+---
+
+# Security Model
+
+```
+No Hardcoded Credentials ANYWHERE
+
+EC2 → ECR:            IAM Role (AmazonEC2ContainerRegistryReadOnly)
+EC2 → Secrets Manager: IAM Policy (scoped to specific secret ARN)
+EC2 → RDS:            Password fetched at runtime from Secrets Manager
+Docker Image:          Runs as non-root user
+```
+
+---
+
+# Current AWS Architecture
+
+```
+                              Internet
+                                 |
+                                 |
+                         Application Load Balancer
+                                 |
+                                 |
+                          Target Group
+                                 |
+                                 |
+                    Auto Scaling Group (Private Subnets)
+                                 |
+                                 |
+                          EC2 Instances
+                                 |
+              +------------------+------------------+
+              |                  |                  |
+              |                  |                  |
+    AWS Systems Manager   Amazon ECR       AWS Secrets Manager
+              |           (Docker Image)          |
+              |                  |                  |
+         IAM EC2 Role    Pull via IAM Role   RDS Credentials
+                                                 |
+                                                 |
+                                       PostgreSQL RDS
+                                       Private Subnets
+```
+
+---
+
+# Project Structure
+
+```
+startuphub-infrastructure/
+├── app/                           # Docker application
+│   ├── Dockerfile                 # Multi-stage, non-root
+│   ├── package.json               # Node.js dependencies
+│   └── server.js                  # Express + PostgreSQL
+├── scripts/
+│   └── build-and-push.sh          # Docker build & push automation
+├── modules/
+│   ├── networking/                # VPC, Subnets, IGW, NAT
+│   ├── security/                  # Security Groups
+│   ├── compute/                   # Launch Template, IAM
+│   ├── alb/                       # Application Load Balancer
+│   ├── autoscaling/               # Auto Scaling Group
+│   ├── rds/                       # PostgreSQL Database
+│   └── ecr/                       # Container Registry (NEW)
+└── environments/dev/              # Dev environment config
+```
+
+---
+
+# Lessons Learned
+
+## Interpolation Errors with templatefile()
+
+The previous attempt to integrate Docker deployment broke Terraform entirely because of interpolation errors.
+
+Root causes:
+- Missing variables in the `vars` map
+- Hardcoded values that didn't match module outputs
+- Too many changes at once making debugging impossible
+
+Solution:
+- One small change at a time
+- All variables passed explicitly (no defaults in modules)
+- Validate after each change before moving on
+
+## Race Condition Prevention
+
+Without the two-phase approach, EC2 instances would attempt to pull an image that doesn't exist yet, causing an infinite loop of failed health checks.
+
+Setting `desired_capacity = 0` during initial deployment ensures the image is available before any instances launch.
+
+---
+
+# Validation Completed
+
+✅ Terraform fmt clean  
+✅ Terraform validate successful  
+✅ ECR module created  
+✅ Docker application built  
+✅ Build & push script created  
+✅ user_data converted to templatefile  
+✅ IAM ECR permissions added  
+✅ All variables explicit (no defaults in modules)  
+✅ Two-phase deployment strategy documented  
+
+---
+
+# Previous Versions
+
+## v0.3.1 - Secure Rebuild Validation
+
+- Full destroy and rebuild cycle validated.
+- SSH access removed.
+- EC2 IAM Role with SSM.
+- Secrets Manager integration.
+- Private RDS deployment.
+
+## v0.2.0 - Compute and Application Layer
+
+- Application Load Balancer.
+- EC2 Launch Template.
+- Auto Scaling Group.
+- Private EC2 deployment.
+- Security Groups.
+
+## v0.1.0 - Network Foundation
+
+- Terraform project structure.
+- AWS VPC.
+- Public and private subnets.
+- Internet Gateway.
+- NAT Gateway.
+
+---
+
+# Next Milestone
+
+# v0.5.0 - CI/CD Pipeline
+
+Planned improvements:
+
+- GitHub Actions workflow for automated deployment.
+- Automated Docker build and push on code merge.
+- Blue/Green or Rolling deployment strategy.
+- CloudWatch monitoring and alerting.
+- Automated ECS/Fargate evaluation.
+- Improved observability.
+
+---
+
+# Project Status
+
+Current Version:
+
+```
+v0.4.0
+```
+
+Status:
+
+```
+Docker & ECR Integration Completed
+Containerized Application Deployment Pipeline Ready
+```
 
 ## Overview
 

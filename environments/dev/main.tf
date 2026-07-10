@@ -35,6 +35,14 @@ module "compute" {
 
   ec2_security_group_id = module.security.ec2_security_group_id
   rds_secret_arn        = module.rds.master_user_secret_arn
+
+  ecr_repository_url = module.ecr.repository_url
+  aws_region         = var.region
+  image_tag          = var.ecr_image_tag
+  rds_endpoint       = module.rds.address
+  rds_port           = module.rds.port
+  rds_db_name        = module.rds.database_name
+  rds_db_user        = var.db_username
 }
 
 module "alb" {

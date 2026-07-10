@@ -2,7 +2,7 @@ resource "aws_launch_template" "this" {
 
   name = "${var.name}-launch-template"
 
-  image_id = var.ami_id
+  image_id      = var.ami_id
   instance_type = var.instance_type
 
 
@@ -11,7 +11,16 @@ resource "aws_launch_template" "this" {
   ]
 
   user_data = base64encode(
-    file("${path.module}/user_data.sh")
+    templatefile("${path.module}/user_data.tpl", {
+      ecr_repository_url = var.ecr_repository_url
+      aws_region         = var.aws_region
+      image_tag          = var.image_tag
+      rds_endpoint       = var.rds_endpoint
+      rds_port           = var.rds_port
+      rds_db_name        = var.rds_db_name
+      rds_db_user        = var.rds_db_user
+      rds_secret_arn     = var.rds_secret_arn
+    })
   )
 
   iam_instance_profile {
@@ -21,9 +30,9 @@ resource "aws_launch_template" "this" {
   block_device_mappings {
     device_name = "/dev/sda1"
     ebs {
-      volume_size = 20
-      volume_type = "gp3"
-      encrypted = true
+      volume_size           = 20
+      volume_type           = "gp3"
+      encrypted             = true
       delete_on_termination = true
 
     }
@@ -35,7 +44,7 @@ resource "aws_launch_template" "this" {
 
   metadata_options {
     http_endpoint = "enabled"
-    http_tokens = "required"
+    http_tokens   = "required"
   }
 
   update_default_version = true

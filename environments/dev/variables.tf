@@ -4,7 +4,6 @@ variable "project_name" {
 
 variable "region" {
   type = string
-
 }
 
 variable "vpc_cidr" {
@@ -119,11 +118,18 @@ variable "db_deletion_protection" {
   type = bool
 }
 
+############################
 # ECR
+############################
+
 variable "ecr_image_tag_mutability" {
   type = string
 }
 
 variable "ecr_scan_on_push" {
   type = bool
+}
+
+variable "ecr_image_tag" {
+  type = string
 }

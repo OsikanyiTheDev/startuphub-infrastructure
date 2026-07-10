@@ -30,9 +30,17 @@ resource "aws_iam_role" "ec2_ssm" {
 ############################################
 
 resource "aws_iam_role_policy_attachment" "ssm" {
-  role = aws_iam_role.ec2_ssm.name
+  role       = aws_iam_role.ec2_ssm.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
 
+############################################
+# Attach ECR Read-Only Policy
+############################################
+
+resource "aws_iam_role_policy_attachment" "ecr_read_only" {
+  role       = aws_iam_role.ec2_ssm.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
 }
 
 
