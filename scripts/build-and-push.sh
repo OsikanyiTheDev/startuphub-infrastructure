@@ -1,188 +1,88 @@
 #!/bin/bash
 set -e
 
-############################################
-# StartupHub - Build & Push Docker Image
-############################################
-# This script builds a Docker image and pushes it to ECR
-# 
-# Prerequisites:
-# - AWS CLI v2 installed and configured
-# - Docker installed and running
-# - Terraform initialized in the environment directory
-# - ECR repository already created via 'terraform apply'
-#
-# Usage:
-#   ./scripts/build-and-push.sh <environment> <dockerfile_dir> <image_tag>
-#
-# Example:
-#   ./scripts/build-and-push.sh dev ./app latest
-############################################
+# Log all output for debugging
+exec > >(tee /var/log/user-data.log) 2>&1
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+echo "=== Starting EC2 initialization ==="
+echo "ECR Repository: ${ecr_repository_url}"
+echo "Image Tag: ${image_tag}"
+echo "RDS Endpoint: ${rds_endpoint}"
+echo "Timestamp: $(date)"
 
-log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1"
-}
+# Update system and install dependencies
+echo "Installing dependencies..."
+apt-get update -y
+apt-get install -y \
+    apt-transport-https \
+    ca-certificates \
+    curl \
+    gnupg \
+    lsb-release \
+    unzip \
+    jq
 
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1"
-}
+# Install Docker
+echo "Installing Docker..."
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
 
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
+echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-############################################
-# Validate Arguments
-############################################
+apt-get update -y
+apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-if [ $# -lt 2 ]; then
-    log_error "Usage: $0 <environment> <dockerfile_dir> [image_tag]"
-    log_error "Example: $0 dev ./app latest"
-    exit 1
-fi
+systemctl start docker
+systemctl enable docker
+echo "Docker installed successfully"
 
-ENVIRONMENT=$1
-DOCKERFILE_DIR=$2
-IMAGE_TAG=${3:-latest}
+# Install AWS CLI v2
+echo "Installing AWS CLI v2..."
+cd /tmp
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip -q awscliv2.zip
+./aws/install --update
+aws --version
+cd -
 
-log_info "Environment: $ENVIRONMENT"
-log_info "Dockerfile directory: $DOCKERFILE_DIR"
-log_info "Image tag: $IMAGE_TAG"
+# Authenticate with ECR using IAM role
+echo "Authenticating with ECR..."
+aws ecr get-login-password --region ${aws_region} | \
+    docker login --username AWS --password-stdin ${ecr_repository_url}
+echo "ECR authentication successful"
 
-############################################
-# Validate Prerequisites
-############################################
+# Pull image from ECR
+echo "Pulling image from ECR..."
+docker pull ${ecr_repository_url}:${image_tag}
+echo "Image pulled successfully"
 
-# Check AWS CLI
-if ! command -v aws &> /dev/null; then
-    log_error "AWS CLI is not installed. Please install it first."
-    exit 1
-fi
+# Fetch database secret from Secrets Manager
+echo "Fetching database credentials from Secrets Manager..."
+SECRET_JSON=$(aws secretsmanager get-secret-value \
+    --secret-id ${rds_secret_arn} \
+    --query SecretString \
+    --output text)
 
-# Check Docker
-if ! command -v docker &> /dev/null; then
-    log_error "Docker is not installed. Please install it first."
-    exit 1
-fi
+DB_PASSWORD=$(echo $SECRET_JSON | jq -r '.password')
+echo "Database credentials retrieved"
 
-# Check Terraform
-if ! command -v terraform &> /dev/null; then
-    log_error "Terraform is not installed. Please install it first."
-    exit 1
-fi
+# Run the application container
+echo "Starting application container..."
+docker run -d \
+    --name startuphub-app \
+    --restart unless-stopped \
+    -p 3000:3000 \
+    -e DB_HOST=${rds_endpoint} \
+    -e DB_PORT=${rds_port} \
+    -e DB_NAME=${rds_db_name} \
+    -e DB_USER=${rds_db_user} \
+    -e DB_PASSWORD=$DB_PASSWORD \
+    ${ecr_repository_url}:${image_tag}
 
-# Verify AWS credentials
-if ! aws sts get-caller-identity &> /dev/null; then
-    log_error "AWS credentials are not configured or expired."
-    exit 1
-fi
-
-log_info "All prerequisites verified ✓"
-
-############################################
-# Get ECR Repository URL from Terraform
-############################################
-
-ENV_DIR="environments/$ENVIRONMENT"
-
-if [ ! -d "$ENV_DIR" ]; then
-    log_error "Environment directory '$ENV_DIR' does not exist."
-    exit 1
-fi
-
-log_info "Getting ECR repository URL from Terraform output..."
-
-cd "$ENV_DIR"
-
-# Initialize Terraform if needed
-if [ ! -d ".terraform" ]; then
-    log_info "Initializing Terraform..."
-    terraform init -backend=false
-fi
-
-# Get the repository URL
-REPO_URL=$(terraform output -raw repository_url 2>/dev/null)
-
-if [ -z "$REPO_URL" ]; then
-    log_error "Could not get repository_url from Terraform output."
-    log_error "Make sure you've run 'terraform apply' first to create the ECR repository."
-    exit 1
-fi
-
-log_info "ECR Repository URL: $REPO_URL"
-
-# Go back to project root
-cd - > /dev/null
-
-############################################
-# Extract AWS Account ID and Region
-############################################
-
-AWS_ACCOUNT_ID=$(echo "$REPO_URL" | cut -d'.' -f1)
-AWS_REGION=$(echo "$REPO_URL" | cut -d'.' -f4)
-
-log_info "AWS Account ID: $AWS_ACCOUNT_ID"
-log_info "AWS Region: $AWS_REGION"
-
-############################################
-# Authenticate with ECR
-############################################
-
-log_info "Authenticating with Amazon ECR..."
-
-aws ecr get-login-password --region "$AWS_REGION" | \
-    docker login --username AWS --password-stdin "$REPO_URL"
-
-if [ $? -ne 0 ]; then
-    log_error "Failed to authenticate with ECR."
-    exit 1
-fi
-
-log_info "ECR authentication successful ✓"
-
-############################################
-# Build Docker Image
-############################################
-
-log_info "Building Docker image..."
-
-docker build -t "$REPO_URL:$IMAGE_TAG" "$DOCKERFILE_DIR"
-
-if [ $? -ne 0 ]; then
-    log_error "Docker build failed."
-    exit 1
-fi
-
-log_info "Docker image built successfully ✓"
-
-############################################
-# Push to ECR
-############################################
-
-log_info "Pushing image to ECR..."
-
-docker push "$REPO_URL:$IMAGE_TAG"
-
-if [ $? -ne 0 ]; then
-    log_error "Docker push failed."
-    exit 1
-fi
-
-log_info "Image pushed successfully ✓"
-
-############################################
-# Success Summary
-############################################
-
-echo ""
-log_info "=========================================="
-log_info "Docker image deployed successfully!"
-log_info "=========================================="
-log_info "Image: $REPO_URL:$IMAGE_TAG"
-log_info "=========================================="
+echo "Container started successfully"
+echo "=== EC2 initialization complete ==="
+echo "Application should be available on port 3000"
