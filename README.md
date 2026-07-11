@@ -492,11 +492,8 @@ Cloud Engineering / DevOps Portfolio Project
 ---
 
 ## Version History
-
-- **v0.6.0**
 - **v0.5.0** - Docker/ECR integration with containerized deployment
 - **v0.4.0** - RDS PostgreSQL with Secrets Manager
 - **v0.3.0** - Security hardening (IAM, SSM, encryption)
 - **v0.2.0** - Load balancer and auto scaling
 - **v0.1.0** - Initial VPC and networking setup
-# Testing CI/CD - Sat Jul 11 08:58:32 AM GMT 2026
