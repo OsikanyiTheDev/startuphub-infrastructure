@@ -167,8 +167,7 @@ jobs:
     name: Terraform Apply
     runs-on: ubuntu-latest
     needs: terraform-plan
-    if: github.event_name == 'workflow_dispatch' && github.event.inputs.apply_infrastructure == 'true'
-    environment: production
+    if: github.event_name == 'push'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -237,4 +236,4 @@ jobs:
 
       - name: Terraform Apply
         working-directory: environments/dev
-        run: terraform apply -auto-approve 
+        run: terraform apply -auto-approve
