@@ -135,6 +135,6 @@ module "iam" {
 
   project_name      = var.project_name
   github_repository = var.github_repository
-  aws_region = var.region
+  aws_region        = var.region
 }
 
