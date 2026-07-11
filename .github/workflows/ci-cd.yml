@@ -40,13 +40,12 @@ jobs:
         with:
           terraform_version: 1.9.8
 
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+
       - name: Terraform Init
         working-directory: environments/dev
         run: terraform init -backend=false
-
-      - name: Terraform Format Check
-        working-directory: environments/dev
-        run: terraform fmt -check
 
       - name: Terraform Validate
         working-directory: environments/dev
@@ -73,7 +72,10 @@ jobs:
       - name: Get ECR Repository URL
         id: ecr-repo
         run: |
-          ECR_URL=$(aws ecr describe-repositories --repository-names ${{ env.ECR_REPOSITORY }} --query 'repositories[0].repositoryUri' --output text)
+          ECR_URL=$(aws ecr describe-repositories \
+            --repository-names ${{ env.ECR_REPOSITORY }} \
+            --query 'repositories[0].repositoryUri' \
+            --output text)
           echo "repository_url=$ECR_URL" >> $GITHUB_OUTPUT
 
       - name: Build Docker image
@@ -107,11 +109,11 @@ jobs:
 
       - name: Terraform Init
         working-directory: environments/dev
-        run: terraform init
+        run: terraform init -backend=false
 
       - name: Terraform Plan
         working-directory: environments/dev
-        run: terraform plan -out=tfplan
+        run: terraform plan
 
   terraform-apply:
     name: Terraform Apply
@@ -136,7 +138,7 @@ jobs:
 
       - name: Terraform Init
         working-directory: environments/dev
-        run: terraform init
+        run: terraform init -backend=false
 
       - name: Terraform Apply
         working-directory: environments/dev
