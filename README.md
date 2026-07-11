@@ -4,101 +4,76 @@
 
 StartupHub Infrastructure is a production-style AWS cloud environment built using **Terraform Infrastructure as Code (IaC)**.
 
-The goal of this project is to design, provision, and manage a secure, scalable, and highly available AWS architecture using Terraform modules.
+This project provisions and manages a secure, scalable, and highly available AWS architecture using Terraform modules with containerized application deployment.
 
 The infrastructure follows AWS best practices by:
 
 - Separating workloads into public and private networks
-- Removing direct SSH access to EC2 instances
+- Deploying containerized applications via Amazon ECR
 - Using AWS Systems Manager for secure instance management
 - Implementing IAM least-privilege access
 - Storing database credentials securely using AWS Secrets Manager
+- Auto-scaling containerized workloads
 - Deploying resources using reusable Terraform modules
 
 ---
 
-# Architecture Overview
+## Architecture Overview
 
 ```
                               Internet
                                   |
                                   |
                      Application Load Balancer
+                           (Port 80)
                                   |
-                  --------------------------------
-                  |                              |
-            Public Subnet 1                Public Subnet 2
-                  |
-                  |
-             Target Group
-                  |
-                  |
-          Auto Scaling Group (EC2)
-                  |
-        -----------------------------
-        |                           |
- Private Application Subnet 1   Private Application Subnet 2
-        |
-        |
-     EC2 Instances
-        |
-        |
-        |-----------------------------
-        |                            |
- AWS Systems Manager          AWS Secrets Manager
-        |                            |
-        |                    RDS Database Credentials
-        |
-        |
- Private Database Subnets
-        |
-        |
- Amazon RDS PostgreSQL Database
-
+                                  |
+                     Target Group (Port 3000)
+                                  |
+                                  |
+                     Auto Scaling Group
+                                  |
+                    --------------|--------------
+                    |                            |
+              Private Subnet 1            Private Subnet 2
+                    |                            |
+              EC2 Instance 1              EC2 Instance 2
+              (Docker Host)               (Docker Host)
+                    |                            |
+                    +--------|---------|---------+
+                             |         |
+                    Amazon ECR    AWS Secrets Manager
+                  (Container      (Database
+                   Registry)      Credentials)
+                                   |
+                             RDS PostgreSQL
+                          (Private Subnet)
 ```
 
 ---
 
-# AWS Services Used
+## AWS Services Used
 
-## Networking
+### Networking
 
 The networking layer provides a secure multi-tier VPC architecture.
 
 Services used:
 
 - Amazon VPC
-- Public Subnets
-- Private Application Subnets
-- Private Database Subnets
+- Public Subnets (ALB)
+- Private Application Subnets (EC2)
+- Private Database Subnets (RDS)
 - Internet Gateway
 - NAT Gateway
 - Route Tables
 - Elastic IP
 
-Network design:
-
-```
-Public Layer
-|
-|-- Application Load Balancer
-
-Private Application Layer
-|
-|-- EC2 Instances
-|-- Auto Scaling Group
-
-Private Database Layer
-|
-|-- PostgreSQL RDS Database
-
-```
-
 ---
 
-# Compute Layer
+### Compute Layer
 
-The compute layer runs the application workload.
+The compute layer runs containerized application workloads using EC2 instances.
 
 Services used:
 
@@ -106,36 +81,47 @@ Services used:
 - EC2 Launch Templates
 - Auto Scaling Groups
 - IAM Instance Profiles
+- Docker Runtime
 
 Features:
 
-- Multiple EC2 instances
+- Containerized application deployment
 - Automatic scaling
 - Encrypted EBS volumes
 - IMDSv2 enabled
 - Monitoring enabled
+- Automatic Docker installation via user data
 
 ---
 
-# Load Balancing
+### Container Registry
+
+Container images are stored and managed in Amazon ECR.
+
+Services used:
+
+- Amazon Elastic Container Registry (ECR)
+- ECR Lifecycle Policies
+- IAM Policies for ECR access
+
+Features:
+
+- Private container registry
+- Automated image scanning
+- IAM-based access control
+- Version management
+
+---
+
+### Load Balancing
 
 The application uses an Application Load Balancer.
 
-Architecture:
+Configuration:
 
-```
-Users
- |
- |
-Application Load Balancer
- |
- |
-Target Group
- |
- |
-EC2 Instances
-
-```
+- Listener: Port 80 (HTTP)
+- Target Group: Port 3000 (Application)
+- Health Check: `/` endpoint
 
 Benefits:
 
@@ -146,7 +132,7 @@ Benefits:
 
 ---
 
-# Database Layer
+### Database Layer
 
 The database layer uses Amazon RDS PostgreSQL.
 
@@ -158,44 +144,31 @@ Features:
 - Automated backups
 - Database security group isolation
 - No public accessibility
+- Credentials managed via AWS Secrets Manager
 
 Database access flow:
 
 ```
-EC2 Instance
+EC2 Container
       |
       |
 Private Network
       |
       |
 Amazon RDS PostgreSQL
-
 ```
 
 Only EC2 instances are allowed to communicate with the database.
 
 ---
 
-# Security Architecture
+## Security Architecture
 
-## Removal of SSH Access
+### Removal of SSH Access
 
-Traditional cloud deployments often expose SSH access:
+This project removes direct SSH access to EC2 instances.
 
-```
-Developer
-    |
-    |
- SSH Port 22
-    |
-    |
- EC2 Instance
-
-```
-
-This project removes direct SSH access.
-
-The new approach:
+The secure approach:
 
 ```
 Developer
@@ -205,7 +178,6 @@ AWS Systems Manager Session Manager
     |
     |
 EC2 Instance
-
 ```
 
 Benefits:
@@ -218,26 +190,20 @@ Benefits:
 
 ---
 
-# IAM Security
+### IAM Security
 
-The EC2 instances use an IAM Role instead of static credentials.
-
-The EC2 role provides:
+The EC2 instances use IAM Roles for:
 
 - AWS Systems Manager access
+- Amazon ECR read access
+- AWS Secrets Manager access
 - Secure AWS service communication
-- Controlled permissions
 
-IAM follows the principle of:
-
-```
-Least Privilege Access
-
-```
+IAM follows the principle of least privilege access.
 
 ---
 
-# Secrets Management
+### Secrets Management
 
 Database credentials are not stored in:
 
@@ -254,95 +220,131 @@ Amazon RDS
 AWS Secrets Manager
       |
       |
-EC2 IAM Role
+EC2 IAM Role (Runtime Access)
 ```
 
-The EC2 role is allowed to retrieve only the required database secret.
+The EC2 instance retrieves credentials at runtime and passes them to the container.
 
 Permission granted:
 
 ```
 secretsmanager:GetSecretValue
-
 ```
-
-The EC2 instance does not have permission to access unrelated secrets.
 
 ---
 
-# Terraform Project Structure
+## Container Deployment
+
+### Docker Application
+
+The application is a Node.js/Express web server:
+
+- Runs on port 3000
+- Connects to PostgreSQL database
+- Reads configuration from environment variables
+- Provides REST API endpoints
+
+### Build and Push Process
+
+Container images are built and pushed using automation scripts:
+
+```bash
+./scripts/build-and-push.sh dev ./app latest
+```
+
+The script:
+
+1. Builds the Docker image from `./app` directory
+2. Tags the image with the specified version
+3. Authenticates with Amazon ECR
+4. Pushes the image to ECR repository
+
+### EC2 Instance Initialization
+
+When EC2 instances launch, user data automatically:
+
+1. Installs Docker runtime
+2. Installs AWS CLI v2
+3. Authenticates with Amazon ECR
+4. Pulls the latest container image
+5. Retrieves database credentials from Secrets Manager
+6. Starts the container with environment variables
+7. Exposes port 3000 for ALB health checks
+
+---
+
+## Terraform Project Structure
 
 ```
 startuphub-infrastructure/
-
+│
+├── app/                          # Application source code
+│   ├── Dockerfile
+│   ├── server.js
+│   ├── package.json
+│   └── .dockerignore
+│
+├── scripts/                      # Automation scripts
+│   └── build-and-push.sh
 │
 ├── environments/
-│   │
 │   └── dev/
-│       │
 │       ├── main.tf
 │       ├── variables.tf
 │       ├── terraform.tfvars
-│       └── outputs.tf
-│
+│       ├── outputs.tf
+│       └── backend.tf
 │
 ├── modules/
-│   │
-│   ├── networking/
+│   ├── alb/
 │   │   ├── main.tf
 │   │   ├── variables.tf
 │   │   └── outputs.tf
 │   │
-│   ├── security/
+│   ├── autoscaling/
 │   │   ├── main.tf
-│   │   ├── secrets.tf
 │   │   ├── variables.tf
 │   │   └── outputs.tf
 │   │
 │   ├── compute/
 │   │   ├── main.tf
 │   │   ├── iam.tf
+│   │   ├── user_data.tpl
 │   │   ├── variables.tf
 │   │   └── outputs.tf
 │   │
-│   ├── alb/
+│   ├── ecr/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
 │   │
-│   ├── autoscaling/
+│   ├── networking/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
 │   │
-│   └── rds/
+│   ├── rds/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   │
+│   └── security/
+│       ├── main.tf
+│       ├── variables.tf
+│       └── outputs.tf
 │
-└── README.md
-
+├── README.md
+├── dependencies.md
+└── .gitignore
 ```
 
 ---
 
-# Terraform Deployment
+## Deployment Workflow
 
-## Prerequisites
+### Phase 1: Infrastructure Setup
 
-Install:
-
-- Terraform
-- AWS CLI
-
-Configure AWS credentials:
-
-```bash
-aws configure
-```
-
-Verify AWS account:
-
-```bash
-aws sts get-caller-identity
-```
-
----
-
-# Initialize Terraform
-
-Navigate to the environment:
+Navigate to the environment directory:
 
 ```bash
 cd environments/dev
@@ -354,93 +356,96 @@ Initialize Terraform:
 terraform init
 ```
 
----
-
-# Validate Configuration
-
-Run:
+Deploy infrastructure with EC2 scaled to 0:
 
 ```bash
-terraform validate
+terraform apply
+```
+
+This creates all resources except EC2 instances, avoiding race conditions.
+
+---
+
+### Phase 2: Build and Push Application
+
+Return to project root:
+
+```bash
+cd ../..
+```
+
+Build and push the Docker image:
+
+```bash
+./scripts/build-and-push.sh dev ./app latest
 ```
 
 ---
 
-# Review Infrastructure Changes
+### Phase 3: Launch EC2 Instances
 
-Generate execution plan:
+Update `terraform.tfvars` to enable scaling:
 
-```bash
-terraform plan
+```hcl
+desired_capacity = 2
+min_size         = 2
 ```
 
-Save plan:
+Apply changes:
 
 ```bash
-terraform plan -out=tfplan
+terraform apply
 ```
+
+EC2 instances will:
+
+1. Launch and run user data script
+2. Install Docker
+3. Pull the container image from ECR
+4. Start the application
+5. Register with ALB target group
+6. Pass health checks
 
 ---
 
-# Deploy Infrastructure
+### Access the Application
 
-Apply the saved plan:
+Retrieve the ALB DNS name:
 
 ```bash
-terraform apply tfplan
+terraform output alb_dns_name
 ```
 
----
+Visit the URL in your browser:
 
-# View Outputs
-
-Example:
-
-```bash
-terraform output
 ```
-
-Available outputs include:
-
-- VPC ID
-- Subnet IDs
-- Load Balancer DNS Name
-- Launch Template ID
-- Auto Scaling Group Name
-- RDS Secret ARN
-
----
-
-# Destroy Infrastructure
-
-To remove all AWS resources:
-
-```bash
-terraform destroy
+http://<alb-dns-name>
 ```
 
 ---
 
-# Current Features
+## Current Features
 
-✅ Modular Terraform architecture  
-✅ Custom AWS VPC design  
-✅ Public and private subnet separation  
-✅ NAT Gateway configuration  
-✅ Application Load Balancer  
-✅ EC2 Launch Template  
-✅ Auto Scaling Group  
-✅ IAM Role based EC2 access  
-✅ AWS Systems Manager access  
-✅ Secrets Manager integration  
-✅ Private PostgreSQL RDS database  
-✅ Security Group isolation  
-✅ Encrypted storage  
-✅ Infrastructure as Code approach  
+✅ Modular Terraform architecture
+✅ Custom AWS VPC design
+✅ Public and private subnet separation
+✅ NAT Gateway configuration
+✅ Application Load Balancer
+✅ EC2 Launch Template
+✅ Auto Scaling Group
+✅ Docker container deployment
+✅ Amazon ECR integration
+✅ IAM Role based EC2 access
+✅ AWS Systems Manager access
+✅ Secrets Manager integration
+✅ Private PostgreSQL RDS database
+✅ Security Group isolation
+✅ Encrypted storage
+✅ Infrastructure as Code approach
 
 ---
 
-# Future Improvements
+## Future Improvements
 
 Planned improvements:
 
@@ -450,19 +455,21 @@ Planned improvements:
 - Centralized logging
 - Terraform remote backend using S3 and DynamoDB
 - GitHub Actions CI/CD pipeline
-- Container deployment using ECS/EKS
 - AWS WAF integration
 - Blue/Green deployments
+- Container orchestration with ECS/EKS
 
 ---
 
-# Skills Demonstrated
+## Skills Demonstrated
 
 This project demonstrates practical experience with:
 
 - Terraform
 - AWS Cloud Architecture
 - Infrastructure as Code
+- Containerization (Docker)
+- Amazon ECR
 - Networking
 - IAM Security
 - EC2 Management
@@ -471,12 +478,23 @@ This project demonstrates practical experience with:
 - Database Security
 - Secrets Management
 - DevOps Practices
+- Automation Scripting
 
 ---
 
-# Author
+## Author
 
 **Osikanyi Essandoh**
 **OsikanyiTheDev**
 
 Cloud Engineering / DevOps Portfolio Project
+
+---
+
+## Version History
+
+- **v0.5.0** - Docker/ECR integration with containerized deployment
+- **v0.4.0** - RDS PostgreSQL with Secrets Manager
+- **v0.3.0** - Security hardening (IAM, SSM, encryption)
+- **v0.2.0** - Load balancer and auto scaling
+- **v0.1.0** - Initial VPC and networking setup
