@@ -171,5 +171,3 @@ module "cloudwatch_dashboard" {
   target_group_arn_suffix = module.alb.target_group_arn_suffix
   rds_instance_identifier = module.rds.instance_identifier
 }
-#testing cloud watch
-#testing cloudwatchci/cd

@@ -153,6 +153,7 @@ jobs:
           ecr_image_tag = "${{ secrets.TF_VAR_ecr_image_tag }}"
           
           github_repository = "${{ secrets.TF_VAR_github_repository }}"
+          alert_email = "${{ secrets.TF_VAR_alert_email }}"
           EOF
 
       - name: Terraform Init
@@ -228,6 +229,7 @@ jobs:
           ecr_image_tag = "${{ secrets.TF_VAR_ecr_image_tag }}"
           
           github_repository = "${{ secrets.TF_VAR_github_repository }}"
+          alert_email = "${{ secrets.TF_VAR_alert_email }}"
           EOF
 
       - name: Terraform Init
