@@ -3,13 +3,13 @@ resource "aws_cloudwatch_dashboard" "main" {
 
   dashboard_body = jsonencode({
     widgets = [
-      # EC2 CPU Utilization
       {
         type   = "metric"
         x      = 0
         y      = 0
         width  = 12
         height = 6
+
         properties = {
           metrics = [
             ["AWS/EC2", "CPUUtilization", "AutoScalingGroupName", var.autoscaling_group_name, { stat = "Average", label = "EC2 CPU Utilization (ASG)" }]
@@ -21,14 +21,13 @@ resource "aws_cloudwatch_dashboard" "main" {
           period  = 300
         }
       },
-      
-      # EC2 Memory Utilization
       {
         type   = "metric"
         x      = 12
         y      = 0
         width  = 12
         height = 6
+
         properties = {
           metrics = [
             ["CWAgent", "mem_used_percent", "AutoScalingGroupName", var.autoscaling_group_name, { stat = "Average", label = "Memory Used %" }]
@@ -40,14 +39,13 @@ resource "aws_cloudwatch_dashboard" "main" {
           period  = 300
         }
       },
-      
-      # ALB Request Count
       {
         type   = "metric"
         x      = 0
         y      = 6
         width  = 12
         height = 6
+
         properties = {
           metrics = [
             ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", var.alb_arn_suffix, { stat = "Sum", label = "Request Count" }]
@@ -59,14 +57,13 @@ resource "aws_cloudwatch_dashboard" "main" {
           period  = 300
         }
       },
-      
-      # ALB Target Response Time
       {
         type   = "metric"
         x      = 12
         y      = 6
         width  = 12
         height = 6
+
         properties = {
           metrics = [
             ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", var.alb_arn_suffix, { stat = "Average", label = "Avg Response Time (s)" }]
@@ -78,14 +75,13 @@ resource "aws_cloudwatch_dashboard" "main" {
           period  = 300
         }
       },
-      
-      # ALB Healthy Host Count
       {
         type   = "metric"
         x      = 0
         y      = 12
         width  = 12
         height = 6
+
         properties = {
           metrics = [
             ["AWS/ApplicationELB", "HealthyHostCount", "LoadBalancer", var.alb_arn_suffix, "TargetGroup", var.target_group_arn_suffix, { stat = "Average", label = "Healthy Hosts" }]
@@ -97,14 +93,13 @@ resource "aws_cloudwatch_dashboard" "main" {
           period  = 300
         }
       },
-      
-      # RDS CPU Utilization
       {
         type   = "metric"
         x      = 12
         y      = 12
         width  = 12
         height = 6
+
         properties = {
           metrics = [
             ["AWS/RDS", "CPUUtilization", "DBInstanceIdentifier", var.rds_instance_identifier, { stat = "Average", label = "RDS CPU Utilization" }]
@@ -116,14 +111,13 @@ resource "aws_cloudwatch_dashboard" "main" {
           period  = 300
         }
       },
-      
-      # RDS Database Connections
       {
         type   = "metric"
         x      = 0
         y      = 18
         width  = 12
         height = 6
+
         properties = {
           metrics = [
             ["AWS/RDS", "DatabaseConnections", "DBInstanceIdentifier", var.rds_instance_identifier, { stat = "Average", label = "Database Connections" }]
@@ -135,14 +129,13 @@ resource "aws_cloudwatch_dashboard" "main" {
           period  = 300
         }
       },
-      
-      # RDS Free Storage Space
       {
         type   = "metric"
         x      = 12
         y      = 18
         width  = 12
         height = 6
+
         properties = {
           metrics = [
             ["AWS/RDS", "FreeStorageSpace", "DBInstanceIdentifier", var.rds_instance_identifier, { stat = "Average", label = "Free Storage (Bytes)" }]
