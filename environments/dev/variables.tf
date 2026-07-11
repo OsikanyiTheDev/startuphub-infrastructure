@@ -133,7 +133,19 @@ variable "ecr_scan_on_push" {
 variable "ecr_image_tag" {
   type = string
 }
+
+############################
+#git hub repo
+############################
 variable "github_repository" {
   description = "GitHub repository in owner/repo format (e.g., OsikanyiTheDev/startuphub-infrastructure)"
+  type        = string
+}
+
+###########################
+#sns 
+############################
+variable "alert_email" {
+  description = "Email address to receive CloudWatch alarm notifications"
   type        = string
 }

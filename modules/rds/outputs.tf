@@ -17,7 +17,13 @@ output "database_name" {
   description = "Database name"
   value       = aws_db_instance.this.db_name
 }
+
 output "master_user_secret_arn" {
   description = "ARN of the RDS master user secret"
   value       = aws_db_instance.this.master_user_secret[0].secret_arn
+}
+
+output "instance_identifier" {
+  description = "RDS instance identifier for CloudWatch metrics"
+  value       = aws_db_instance.this.identifier
 }

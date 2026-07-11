@@ -267,6 +267,8 @@ The IAM user/role used for deployment needs the following managed policies:
 - `IAMFullAccess`
 - `SecretsManagerReadWrite`
 - `AmazonS3FullAccess` (for Terraform state backend)
+- `CloudWatchFullAccess` (for monitoring and alarms)
+- `AmazonSNSFullAccess` (for alarm notifications)
 
 Or use `AdministratorAccess` for initial testing (not recommended for production).
 
@@ -365,6 +367,11 @@ ecr_image_tag            = "latest"
 # GitHub Actions
 ############################
 github_repository = "OsikanyiTheDev/startuphub-infrastructure"
+
+############################
+# SNS Alerts
+############################
+alert_email = "osikanyie@gmail.com"
 ```
 
 **Note:** This file is gitignored to protect sensitive configuration.
@@ -487,6 +494,40 @@ terraform output alb_dns_name
 
 Visit the ALB URL in your browser (wait 5-7 minutes for instances to initialize).
 
+### Verify Monitoring
+
+**Check CloudWatch Logs:**
+```bash
+# View user-data logs
+aws logs tail /aws/ec2/startuphub-dev/user-data --since 1h
+
+# View Docker logs
+aws logs tail /aws/ec2/startuphub-dev/docker --since 1h
+
+# View system logs
+aws logs tail /aws/ec2/startuphub-dev/system --since 1h
+```
+
+**Check CloudWatch Agent:**
+```bash
+# Connect to EC2 via SSM
+aws ssm start-session --target <instance-id>
+
+# Check agent status
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -m ec2 -a status
+
+# Expected: status: running
+```
+
+**Check Dashboard:**
+1. Go to AWS Console → CloudWatch → Dashboards
+2. Open `startuphub-dev-dashboard`
+3. Verify all 8 widgets show data (EC2 CPU, Memory, ALB metrics, RDS metrics)
+
+**Confirm SNS Email:**
+- Check email inbox for "AWS Notification - Subscription Confirmation"
+- Click "Confirm subscription" to activate alarm notifications
+
 ---
 
 ## Troubleshooting
@@ -524,7 +565,7 @@ Visit the ALB URL in your browser (wait 5-7 minutes for instances to initialize)
 - Check OIDC provider is configured
 
 ### Terraform Plan/Apply Hangs in CI/CD
-- Ensure all 32 `TF_VAR_*` secrets are set in GitHub
+- Ensure all 33 `TF_VAR_*` secrets are set in GitHub
 - Run `./scripts/set-github-secrets.sh` to populate secrets
 - Verify secrets match local `terraform.tfvars` values
 
@@ -540,8 +581,14 @@ Visit the ALB URL in your browser (wait 5-7 minutes for instances to initialize)
 - **ALB:** ~$16
 - **ECR:** ~$1
 - **Data Transfer:** ~$5
+- **CloudWatch Monitoring:** ~$10-15
+  - Logs (30-day retention): ~$3-5
+  - Custom metrics (CloudWatch Agent): ~$3-5
+  - Dashboard: Free (3 dashboards included)
+  - Alarms: ~$0.10/alarm/month
+  - SNS notifications: ~$0.50 for 100 notifications
 
-**Total:** ~$97/month
+**Total:** ~$107-112/month
 
 **Cost Optimization:**
 - Set `desired_capacity = 0` when not in use

@@ -90,7 +90,7 @@ GitHub Actions starts automatically
 
 ### Secrets Management
 
-All 32 infrastructure variables are stored securely in GitHub Secrets:
+All 33 infrastructure variables are stored securely in GitHub Secrets:
 
 - ✅ Zero secrets in git repository
 - ✅ Encrypted at rest in GitHub
@@ -364,6 +364,21 @@ startuphub-infrastructure/
 │   │   ├── variables.tf
 │   │   └── outputs.tf
 │   │
+│   ├── cloudwatch-alarms/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   │
+│   ├── cloudwatch-dashboard/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   │
+│   ├── cloudwatch-logs/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   │
 │   ├── compute/
 │   │   ├── main.tf
 │   │   ├── iam.tf
@@ -391,7 +406,12 @@ startuphub-infrastructure/
 │   │   ├── variables.tf
 │   │   └── outputs.tf
 │   │
-│   └── security/
+│   ├── security/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   │
+│   └── sns/
 │       ├── main.tf
 │       ├── variables.tf
 │       └── outputs.tf
@@ -404,6 +424,61 @@ startuphub-infrastructure/
 ├── milestone-history.md
 └── .gitignore
 ```
+
+---
+
+## Monitoring & Observability
+
+The infrastructure includes comprehensive monitoring and logging capabilities for production-grade operations.
+
+### CloudWatch Logs
+
+Four log groups capture all system activity:
+
+| Log Group | Source | Retention |
+|-----------|--------|-----------|
+| `/aws/ec2/{project}/system` | System logs (`/var/log/syslog`) | 30 days |
+| `/aws/ec2/{project}/docker` | Docker container logs | 30 days |
+| `/aws/ec2/{project}/application` | Application logs | 30 days |
+| `/aws/ec2/{project}/user-data` | EC2 initialization logs | 30 days |
+
+Access logs via AWS Console → CloudWatch → Log groups, or use AWS CLI:
+
+```bash
+aws logs tail /aws/ec2/startuphub-dev/docker --follow
+```
+
+### CloudWatch Agent
+
+EC2 instances run the CloudWatch Agent to collect custom metrics:
+
+- **CPU**: Active, idle, user, system (per core and total)
+- **Memory**: Used percent, available percent
+- **Disk**: Usage percent per mount point, inodes free
+- **Network**: Bytes/packets sent/received per interface
+- **Swap**: Used percent
+
+### CloudWatch Dashboard
+
+Access the unified dashboard at `startuphub-dev-dashboard` in CloudWatch Console.
+
+Widgets include:
+- EC2 CPU utilization (ASG average)
+- EC2 memory used percent
+- ALB request count
+- ALB target response time
+- ALB healthy host count
+- RDS CPU utilization
+- RDS database connections
+- RDS free storage space
+
+### CloudWatch Alarms
+
+**CPU Alarm**: Triggers when ASG average CPU exceeds 80% for 10 minutes (2 consecutive 5-minute periods).
+
+Notifications are sent via SNS to `osikanyie@gmail.com`.
+
+**Important**: After initial deployment, check your email and click the SNS subscription confirmation link to activate email notifications.
 
 ---
 
@@ -529,8 +604,13 @@ gh auth login
 ✅ Infrastructure as Code approach
 ✅ **GitHub Actions CI/CD pipeline**
 ✅ **Automated deployments on git push**
-✅ **32 secrets managed in GitHub**
+✅ **33 secrets managed in GitHub**
 ✅ **OIDC authentication (no AWS keys)**
+✅ **CloudWatch centralized logging**
+✅ **CloudWatch Agent for custom metrics**
+✅ **CloudWatch dashboard with 8 widgets**
+✅ **CloudWatch alarms with SNS notifications**
+✅ **Production-grade observability**
 
 ---
 
@@ -540,12 +620,12 @@ Planned improvements:
 
 - HTTPS with ACM certificates
 - Route53 DNS integration
-- CloudWatch monitoring and alarms
-- Centralized logging
 - AWS WAF integration
 - Blue/Green deployments
 - Container orchestration with ECS/EKS
 - Multi-environment (dev/staging/prod)
+- Enhanced CloudWatch alarms (memory, disk, RDS)
+- CloudWatch Synthetics for uptime monitoring
 
 ---
 
@@ -584,6 +664,7 @@ Cloud Engineering / DevOps Portfolio Project
 
 ## Version History
 
+- **v0.7.0** - Monitoring & Logging (CloudWatch Logs, Agent, Alarms, Dashboard, SNS)
 - **v0.6.0** - CI/CD pipeline with GitHub Actions automation
 - **v0.5.0** - Docker/ECR integration with containerized deployment
 - **v0.4.0** - RDS PostgreSQL with Secrets Manager

@@ -50,6 +50,84 @@ unzip -q awscliv2.zip
 aws --version
 cd -
 
+# Install CloudWatch Agent
+echo "Installing CloudWatch Agent..."
+cd /tmp
+curl -O https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+dpkg -i -E ./amazon-cloudwatch-agent.deb
+rm amazon-cloudwatch-agent.deb
+cd -
+
+# Configure CloudWatch Agent
+echo "Configuring CloudWatch Agent..."
+cat > /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json <<'CWAGENT_CONFIG'
+{
+  "agent": {
+    "metrics_collection_interval": 60,
+    "run_as_user": "root"
+  },
+  "metrics": {
+    "namespace": "CWAgent",
+    "metrics_collected": {
+      "cpu": {
+        "resources": ["*"],
+        "measurement": ["usage_active", "usage_idle", "usage_user", "usage_system"],
+        "totalcpu": true
+      },
+      "disk": {
+        "resources": ["/"],
+        "measurement": ["used_percent", "inodes_free"]
+      },
+      "diskio": {
+        "resources": ["*"],
+        "measurement": ["reads", "writes", "read_bytes", "write_bytes"]
+      },
+      "mem": {
+        "measurement": ["mem_used_percent", "mem_available_percent"]
+      },
+      "net": {
+        "resources": ["*"],
+        "measurement": ["bytes_sent", "bytes_recv", "packets_sent", "packets_recv"]
+      },
+      "swap": {
+        "measurement": ["used_percent"]
+      }
+    }
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/syslog",
+            "log_group_name": "/aws/ec2/${project_name}/system",
+            "log_stream_name": "{instance_id}",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/var/log/user-data.log",
+            "log_group_name": "/aws/ec2/${project_name}/user-data",
+            "log_stream_name": "{instance_id}",
+            "timezone": "UTC"
+          },
+          {
+            "file_path": "/var/lib/docker/containers/*/*.log",
+            "log_group_name": "/aws/ec2/${project_name}/docker",
+            "log_stream_name": "{instance_id}/{hostname}",
+            "timezone": "UTC"
+          }
+        ]
+      }
+    }
+  }
+}
+CWAGENT_CONFIG
+
+# Start CloudWatch Agent
+echo "Starting CloudWatch Agent..."
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
+echo "CloudWatch Agent configured and started"
+
 # Authenticate with ECR using IAM role
 echo "Authenticating with ECR..."
 aws ecr get-login-password --region ${aws_region} | \

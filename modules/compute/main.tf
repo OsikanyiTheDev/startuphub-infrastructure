@@ -12,6 +12,7 @@ resource "aws_launch_template" "this" {
 
   user_data = base64encode(
     templatefile("${path.module}/user_data.tpl", {
+      project_name       = var.project_name
       ecr_repository_url = var.ecr_repository_url
       aws_region         = var.aws_region
       image_tag          = var.image_tag

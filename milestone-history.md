@@ -38,7 +38,7 @@ git push → Validate → Build & Push → Plan → Apply
    - Pushes to ECR repository
 
 3. **Terraform Plan**
-   - Generates `terraform.tfvars` from 32 GitHub Secrets
+   - Generates `terraform.tfvars` from 33 GitHub Secrets
    - Runs `terraform plan`
    - Shows planned changes before apply
 
@@ -65,7 +65,7 @@ permissions:
 
 ### Secrets Management with GitHub Secrets
 
-All 32 infrastructure variables stored securely in GitHub Secrets:
+All 33 infrastructure variables stored securely in GitHub Secrets:
 
 ```bash
 # Automated setup script
@@ -125,8 +125,8 @@ gh auth login
 ```
 
 **Automation Script:** `scripts/set-github-secrets.sh`
-- Automatically sets all 32 secrets from `terraform.tfvars`
-- One command replaces 32 manual clicks
+- Automatically sets all 33 secrets from `terraform.tfvars`
+- One command replaces 33 manual clicks
 - Gitignored (contains sensitive values)
 
 ### Path-Based Triggers
@@ -249,7 +249,7 @@ Documented v0.6.0 achievements:
 ✅ GitHub Actions workflow runs successfully
 ✅ All 4 jobs complete (Validate, Build, Plan, Apply)
 ✅ OIDC authentication works (no AWS keys)
-✅ 32 secrets stored in GitHub Secrets
+✅ 33 secrets stored in GitHub Secrets
 ✅ Docker image automatically built and pushed
 ✅ Infrastructure automatically applied
 ✅ Zero secrets in git repository
@@ -275,7 +275,7 @@ gh run list
 gh secret list
 ```
 
-Expected: 32 `TF_VAR_*` secrets + `AWS_ROLE_ARN`
+Expected: 33 `TF_VAR_*` secrets + `AWS_ROLE_ARN`
 
 ### Test Automatic Deployment
 
@@ -296,7 +296,7 @@ gh run watch
 
 ### Secrets Management in CI/CD
 
-**Challenge:** How to manage 32 variables without storing them in git?
+**Challenge:** How to manage 33 variables without storing them in git?
 
 **Solution:** GitHub Secrets + automated setup script
 
@@ -851,15 +851,345 @@ This captures all output for troubleshooting.
 
 ## Next Milestone (from v0.5.0)
 
-### v0.6.0 - CI/CD Pipeline
+### v0.7.0 - Monitoring & Logging (Current)
 
-**Status:** ✅ **COMPLETED** - See v0.6.0 section above
+**Date:** 2026-07-11
 
-- ✅ GitHub Actions workflow for automated deployment
-- ✅ Automated Docker build and push on code merge
-- ✅ OIDC authentication (no AWS access keys)
-- ✅ Secrets management with GitHub Secrets
-- ✅ Fully automated terraform apply
+## Overview
+
+v0.7.0 adds comprehensive monitoring and logging capabilities to the StartupHub infrastructure. We implemented centralized logging with CloudWatch Logs, real-time metrics collection with CloudWatch Agent, automated alerting with SNS, and a unified monitoring dashboard.
+
+This milestone transforms the infrastructure from "set it and forget it" to fully observable, enabling proactive monitoring and rapid incident response.
+
+## What We Built
+
+### 1. CloudWatch Logs Module (`modules/cloudwatch-logs`)
+
+Created a dedicated module for centralized log management with 4 log groups:
+
+- **System Logs** (`/aws/ec2/{project}/system`): Captures `/var/log/syslog` from EC2 instances
+- **Docker Logs** (`/aws/ec2/{project}/docker`): Collects all Docker container logs from `/var/lib/docker/containers/*/*.log`
+- **Application Logs** (`/aws/ec2/{project}/application`): Ready for application-specific logging
+- **User Data Logs** (`/aws/ec2/{project}/user-data`): Tracks EC2 initialization scripts in `/var/log/user-data.log`
+
+All log groups have 30-day retention and consistent tagging.
+
+### 2. SNS Module (`modules/sns`)
+
+Implemented notification infrastructure for alert delivery:
+
+- **SNS Topic** (`{project}-alerts`): Central hub for all monitoring alerts
+- **Email Subscription**: Delivers alerts directly to `osikanyie@gmail.com`
+- **Ready for Integration**: Multiple alarm types can publish to the same topic
+
+### 3. CloudWatch Agent Integration (`modules/compute`)
+
+Enhanced EC2 instances with deep observability:
+
+- **IAM Policy Attachment**: Added `CloudWatchAgentServerPolicy` to EC2 instance role
+- **Agent Installation**: Automated installation via user data script
+- **Custom Configuration**: Deployed agent config collecting:
+  - **CPU metrics**: Active, idle, user, system usage per core and total
+  - **Memory metrics**: Used percent, available percent
+  - **Disk metrics**: Usage percent per mount point, inodes free
+  - **Network metrics**: Bytes sent/received, packets sent/received per interface
+  - **Swap metrics**: Used percent
+- **Log Forwarding**: Automatically streams 3 log sources to CloudWatch Logs
+- **Service Management**: Agent starts on boot and restarts on failure
+
+### 4. CloudWatch Alarms Module (`modules/cloudwatch-alarms`)
+
+Deployed automated alerting with intelligent thresholds:
+
+- **CPU Alarm**: Triggers when ASG average CPU > 80% for 2 consecutive periods (10 minutes)
+- **ASG-Level Monitoring**: Alarms monitor the Auto Scaling Group, not individual instances
+- **SNS Integration**: All alarms publish to the SNS topic for email notifications
+- **OK Actions**: Alerts when metrics return to normal (not just when they breach)
+
+**Note on Memory/Disk Alarms**: Instance-level metrics require dynamic instance IDs which aren't available in Terraform at plan time. Documented manual creation process for future enhancement.
+
+### 5. CloudWatch Dashboard Module (`modules/cloudwatch-dashboard`)
+
+Created a unified monitoring dashboard with 8 metric widgets:
+
+**EC2 Section:**
+- CPU Utilization (ASG-level average)
+- Memory Used % (from CWAgent custom metrics)
+
+**ALB Section:**
+- Request Count (sum of all requests)
+- Target Response Time (average latency in seconds)
+- Healthy Host Count (number of healthy targets)
+
+**RDS Section:**
+- CPU Utilization
+- Database Connections
+- Free Storage Space (in bytes)
+
+Dashboard provides single-pane-of-glass visibility into the entire infrastructure.
+
+### 6. Enhanced Module Outputs
+
+Added CloudWatch-specific outputs to existing modules:
+
+- **ALB Module**: `alb_arn_suffix` and `target_group_arn_suffix` for CloudWatch metrics
+- **RDS Module**: `instance_identifier` for RDS CloudWatch metrics
+- **Dev Environment**: `dashboard_name` output for easy dashboard access
+
+## Architecture Changes
+
+### Before v0.7.0
+```
+Internet → ALB → EC2 (Docker) → RDS
+              (No visibility into what's happening)
+```
+
+### After v0.7.0
+```
+Internet → ALB → EC2 (Docker) → RDS
+    ↓         ↓        ↓           ↓
+  ALB     CloudWatch  CloudWatch  CloudWatch
+ Metrics   Dashboard   Agent       Metrics
+    ↓         ↓        ↓           ↓
+    └─────────┴────────┴───────────┘
+              CloudWatch
+                 ↓
+            SNS → Email
+```
+
+## Monitoring Capabilities
+
+### What You Can Now See
+
+**Real-Time Metrics:**
+- EC2 CPU, memory, disk, and network utilization
+- Docker container resource consumption
+- ALB request rates, latency, and health status
+- RDS performance and connection metrics
+
+**Centralized Logs:**
+- System logs from all EC2 instances
+- Docker container stdout/stderr
+- Application logs (ready for integration)
+- User data execution logs for debugging
+
+**Automated Alerts:**
+- Email notifications when CPU exceeds 80%
+- Recovery notifications when metrics normalize
+- 10-minute evaluation window prevents false positives
+
+**Unified Dashboard:**
+- Single view of all infrastructure components
+- Real-time metric visualization
+- Historical trend analysis
+
+## Deployment Impact
+
+### No Breaking Changes
+
+All v0.7.0 additions are backward compatible:
+- Existing infrastructure continues to work unchanged
+- New monitoring resources are additive
+- No modifications to application code required
+
+### New Resources Created
+
+- 4 CloudWatch Log Groups
+- 1 SNS Topic + 1 Email Subscription
+- 1 CloudWatch Agent configuration per EC2 instance
+- 1 CloudWatch Alarm (CPU)
+- 1 CloudWatch Dashboard with 8 widgets
+- IAM policy attachments for CloudWatch Agent
+
+### Cost Impact
+
+**Estimated Monthly Cost Increase: ~$5-10**
+
+- CloudWatch Logs: ~$2-3/month (depending on log volume)
+- CloudWatch Metrics: ~$2-3/month (custom metrics from agent)
+- SNS Notifications: ~$0.50/month (assuming 10 alerts)
+- CloudWatch Dashboard: Free (up to 3 dashboards)
+
+**Justification**: The monitoring cost is <10% of total infrastructure cost and provides invaluable operational visibility.
+
+## Validation Steps
+
+### 1. Deploy Infrastructure
+
+```bash
+cd environments/dev
+terraform apply
+```
+
+### 2. Check SNS Subscription
+
+AWS sends a confirmation email to `osikanyie@gmail.com`. Click the confirmation link to activate the subscription. Without this step, alarms won't send notifications.
+
+### 3. Verify CloudWatch Agent
+
+Connect to EC2 via SSM and check agent status:
+
+```bash
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -m ec2 -a status
+```
+
+Expected output: `Status: running`
+
+### 4. Check Logs in CloudWatch
+
+Navigate to CloudWatch Console → Log groups. You should see 4 log groups:
+- `/aws/ec2/startuphub-dev/system`
+- `/aws/ec2/startuphub-dev/docker`
+- `/aws/ec2/startuphub-dev/application`
+- `/aws/ec2/startuphub-dev/user-data`
+
+Open any log group and verify logs are streaming.
+
+### 5. Test CPU Alarm
+
+Generate CPU load on an EC2 instance:
+
+```bash
+# Connect via SSM
+aws ssm start-session --target <instance-id>
+
+# Generate CPU load
+stress --cpu 4 --timeout 600
+```
+
+Wait 10 minutes. You should receive an email alert when CPU exceeds 80%.
+
+### 6. View Dashboard
+
+Navigate to CloudWatch Console → Dashboards → `startuphub-dev-dashboard`
+
+Verify all 8 widgets are displaying metrics.
+
+## Lessons Learned
+
+### 1. CloudWatch Agent Configuration Complexity
+
+**Challenge**: CloudWatch Agent configuration is verbose JSON with many options.
+
+**Solution**: Start with a minimal config collecting essential metrics (CPU, memory, disk, network). Expand incrementally as needed.
+
+**Best Practice**: Use Terraform template files for agent configuration to enable dynamic values (log group names, regions).
+
+### 2. Instance-Level vs ASG-Level Alarms
+
+**Challenge**: Memory and disk metrics are instance-level, but ASG instances are dynamic.
+
+**Solution**: Use ASG-level alarms for CPU (aggregated metric). Document manual process for instance-level alarms.
+
+**Alternative**: Use CloudWatch Contributor Insights or Lambda to create dynamic alarms per instance.
+
+### 3. SNS Email Confirmation
+
+**Challenge**: AWS requires explicit email confirmation before sending notifications.
+
+**Solution**: Document this step prominently. Consider using SMS or PagerDuty for production (no confirmation required).
+
+### 4. CloudWatch Dashboard JSON
+
+**Challenge**: Dashboard definitions are large JSON blobs that are hard to maintain.
+
+**Solution**: Use Terraform `jsonencode()` function for type safety and validation.
+
+**Best Practice**: Start with a simple dashboard, then expand. Don't try to visualize everything at once.
+
+### 5. Log Group Naming Convention
+
+**Challenge**: Multiple log sources need consistent naming.
+
+**Solution**: Use hierarchical naming: `/aws/ec2/{project}/{log-type}`
+
+**Benefit**: Easy to search and filter logs in CloudWatch Console.
+
+## Skills Demonstrated
+
+**Cloud Monitoring:**
+- CloudWatch Logs configuration and management
+- CloudWatch Agent installation and configuration
+- CloudWatch custom metrics and dimensions
+- CloudWatch dashboards and widgets
+- CloudWatch alarms and SNS integration
+
+**Operational Excellence:**
+- Centralized logging strategy
+- Real-time monitoring and alerting
+- Proactive incident detection
+- Unified observability platform
+
+**Infrastructure as Code:**
+- Modular monitoring infrastructure
+- Reusable CloudWatch patterns
+- Dynamic dashboard generation
+- Automated agent deployment
+
+**Security & Compliance:**
+- IAM least-privilege for CloudWatch Agent
+- Encrypted log storage (CloudWatch default)
+- Audit trail via CloudTrail
+
+## Future Enhancements (v0.8.0+)
+
+### High Priority
+- Memory and disk alarms (requires dynamic instance ID handling)
+- RDS performance alarms (CPU, connections, storage)
+- ALB 5xx error rate alarms
+- Log insights queries for common patterns
+
+### Medium Priority
+- CloudWatch Synthetics for uptime monitoring
+- X-Ray distributed tracing
+- Custom application metrics
+- Log metric filters for error counting
+
+### Nice to Have
+- Grafana integration for advanced visualization
+- PagerDuty/OpsGenie integration for on-call
+- Cost Explorer dashboards
+- Anomaly detection with ML
+
+## Comparison to Industry Standards
+
+### AWS Well-Architected Framework - Operational Excellence
+
+v0.7.0 addresses these pillars:
+
+✅ **Perform operations as code**: Monitoring deployed via Terraform
+✅ **Make frequent, small, reversible changes**: Alarms can be adjusted without downtime
+✅ **Refine operations procedures continuously**: Dashboard provides feedback loop
+✅ **Anticipate failure**: Alarms detect issues before users are impacted
+✅ **Learn from operational failures**: Logs enable post-mortem analysis
+
+### Production Readiness Checklist
+
+Before v0.7.0:
+- ❌ No centralized logging
+- ❌ No real-time metrics
+- ❌ No automated alerting
+- ❌ No unified dashboard
+- ❌ Manual troubleshooting only
+
+After v0.7.0:
+- ✅ Centralized logging with 30-day retention
+- ✅ Real-time metrics for all components
+- ✅ Automated alerting with email notifications
+- ✅ Unified dashboard with 8 key metrics
+- ✅ Proactive monitoring and rapid response
+
+---
+
+# v0.7.0 - Monitoring & Logging
+
+**Status:** ✅ **COMPLETED** - See v0.7.0 section above
+
+- ✅ CloudWatch Logs for centralized logging
+- ✅ CloudWatch Agent for custom metrics
+- ✅ SNS notifications for alerts
+- ✅ CloudWatch Alarms for automated alerting
+- ✅ CloudWatch Dashboard for unified monitoring
 
 ---
 
@@ -868,27 +1198,32 @@ This captures all output for troubleshooting.
 **Current Version:**
 
 ```
-v0.6.0
+v0.7.0
 ```
 
 **Status:**
 
 ```
-Full CI/CD Automation
-Zero-Touch Deployments
-Production-Grade GitHub Actions Pipeline
+Full Monitoring & Observability
+Centralized Logging
+Automated Alerting
+Production-Ready Dashboard
 ```
 
 **Architecture:**
 
 ```
 git push → GitHub Actions → Validate → Build → Push → Plan → Apply → AWS
-                                              ↓
-                                          ECR Repository
-                                              ↓
-                                          EC2 Instances
-                                              ↓
-                                          RDS PostgreSQL
+                                              ↓                    ↓
+                                          ECR Repository      CloudWatch
+                                              ↓                    ↓
+                                          EC2 Instances ←── CloudWatch Agent
+                                          (with Agent)           ↓
+                                              ↓              Logs & Metrics
+                                            RDS PostgreSQL        ↓
+                                              ↓              Dashboard & Alarms
+                                          CloudWatch Logs         ↓
+                                          CloudWatch Metrics     SNS → Email
 ```
 
 **Deployment Time:** 5-7 minutes (fully automated)
@@ -896,5 +1231,7 @@ git push → GitHub Actions → Validate → Build → Push → Plan → Apply �
 **Manual Steps:** Zero
 
 **Secrets in Git:** Zero
+
+**Monitoring:** Full observability with logs, metrics, alarms, and dashboards
 
 ---

@@ -14,6 +14,7 @@ module "networking" {
   private_db_subnet_1_cidr = var.private_db_subnet_1_cidr
   private_db_subnet_2_cidr = var.private_db_subnet_2_cidr
 }
+
 module "security" {
   source = "../../modules/security"
 
@@ -28,7 +29,8 @@ module "security" {
 module "compute" {
   source = "../../modules/compute"
 
-  name = var.project_name
+  name         = var.project_name
+  project_name = var.project_name
 
   ami_id        = var.ami_id
   instance_type = var.instance_type
@@ -136,4 +138,36 @@ module "iam" {
   project_name      = var.project_name
   github_repository = var.github_repository
   aws_region        = var.region
+}
+
+module "cloudwatch_logs" {
+  source = "../../modules/cloudwatch-logs"
+
+  project_name = var.project_name
+}
+
+module "sns" {
+  source = "../../modules/sns"
+
+  project_name = var.project_name
+  alert_email  = var.alert_email
+}
+
+module "cloudwatch_alarms" {
+  source = "../../modules/cloudwatch-alarms"
+
+  project_name           = var.project_name
+  sns_topic_arn          = module.sns.sns_topic_arn
+  autoscaling_group_name = module.autoscaling.autoscaling_group_name
+}
+
+module "cloudwatch_dashboard" {
+  source = "../../modules/cloudwatch-dashboard"
+
+  project_name            = var.project_name
+  aws_region              = var.region
+  autoscaling_group_name  = module.autoscaling.autoscaling_group_name
+  alb_arn_suffix          = module.alb.alb_arn_suffix
+  target_group_arn_suffix = module.alb.target_group_arn_suffix
+  rds_instance_identifier = module.rds.instance_identifier
 }
