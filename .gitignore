@@ -38,3 +38,7 @@ startuphub-dev-key.pub
 # Node.js
 node_modules/
 npm-debug.log*
+
+
+# Secrets management scripts (contain sensitive values)
+scripts/set-github-secrets.sh
