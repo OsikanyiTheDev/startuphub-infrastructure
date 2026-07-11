@@ -90,3 +90,13 @@ resource "aws_iam_role_policy_attachment" "github_actions_s3" {
   role       = aws_iam_role.github_actions.name
   policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
 }
+
+resource "aws_iam_role_policy_attachment" "github_actions_cloudwatch" {
+  role       = aws_iam_role.github_actions.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchFullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "github_actions_sns" {
+  role       = aws_iam_role.github_actions.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+}
