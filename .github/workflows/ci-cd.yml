@@ -9,6 +9,7 @@ on:
       - 'environments/dev/**'
       - 'app/**'
       - 'scripts/**'
+      - '.github/workflows/**'
   workflow_dispatch:
     inputs:
       apply_infrastructure:
