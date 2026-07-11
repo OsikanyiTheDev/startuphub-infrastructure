@@ -135,7 +135,88 @@ git --version
 
 ---
 
-## 5. Node.js (Optional)
+## 5. GitHub CLI (Required for CI/CD)
+
+**Purpose:** Manage GitHub secrets and workflows from the command line
+
+**Minimum Version:** 2.0.0
+
+**Installation:**
+
+### macOS (Homebrew)
+```bash
+brew install gh
+```
+
+### Ubuntu/Debian
+```bash
+sudo apt update
+sudo apt install gh -y
+```
+
+### Windows
+```powershell
+choco install gh
+```
+
+**Verify Installation:**
+```bash
+gh --version
+```
+
+**Authentication:**
+```bash
+gh auth login
+```
+
+Follow the prompts:
+- Choose **GitHub.com**
+- Choose **HTTPS** or **SSH** (based on your Git setup)
+- Choose **Login with a web browser**
+- Copy the one-time code and authorize in browser
+
+**Verify Authentication:**
+```bash
+gh auth status
+```
+
+---
+
+## 6. AWS Session Manager Plugin (Required for EC2 Access)
+
+**Purpose:** Connect to EC2 instances without SSH
+
+**Installation:**
+
+### macOS
+```bash
+curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/mac/sessionmanager-bundle.zip" -o "sessionmanager-bundle.zip"
+unzip sessionmanager-bundle.zip
+sudo ./sessionmanager-bundle/install -i /usr/local/sessionmanagerplugin -b /usr/local/bin/session-manager-plugin
+```
+
+### Ubuntu/Debian
+```bash
+curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o "session-manager-plugin.deb"
+sudo dpkg -i session-manager-plugin.deb
+```
+
+### Windows
+Download and run the MSI installer from AWS.
+
+**Verify Installation:**
+```bash
+session-manager-plugin
+```
+
+**Connect to EC2 Instance:**
+```bash
+aws ssm start-session --target <instance-id>
+```
+
+---
+
+## 7. Node.js (Optional)
 
 **Purpose:** Local development and testing of the application
 
@@ -185,6 +266,7 @@ The IAM user/role used for deployment needs the following managed policies:
 - `AmazonEC2ContainerRegistryFullAccess`
 - `IAMFullAccess`
 - `SecretsManagerReadWrite`
+- `AmazonS3FullAccess` (for Terraform state backend)
 
 Or use `AdministratorAccess` for initial testing (not recommended for production).
 
@@ -278,6 +360,11 @@ db_deletion_protection = false
 ecr_image_tag_mutability = "MUTABLE"
 ecr_scan_on_push         = true
 ecr_image_tag            = "latest"
+
+############################
+# GitHub Actions
+############################
+github_repository = "OsikanyiTheDev/startuphub-infrastructure"
 ```
 
 **Note:** This file is gitignored to protect sensitive configuration.
@@ -286,46 +373,100 @@ ecr_image_tag            = "latest"
 
 ## Deployment Steps
 
-### Step 1: Clone Repository
+### Option 1: Automated CI/CD (Recommended)
 
+#### Initial Setup (One-time)
+
+1. **Clone Repository:**
 ```bash
-git clone https://github.com/OsikanyiTheDev/startuphub-infrastructure.git
+git clone git@github.com:OsikanyiTheDev/startuphub-infrastructure.git
 cd startuphub-infrastructure
 ```
 
-### Step 2: Initialize Terraform
+2. **Configure AWS:**
+```bash
+aws configure
+aws sts get-caller-identity
+```
 
+3. **Deploy Infrastructure (First Time Only):**
 ```bash
 cd environments/dev
 terraform init
-```
-
-### Step 3: Validate Configuration
-
-```bash
-terraform validate
-terraform plan
-```
-
-### Step 4: Deploy Infrastructure (Phase 1)
-
-```bash
 terraform apply
 ```
 
-This creates all resources with EC2 instances scaled to 0.
+This creates all resources with `desired_capacity = 0`.
 
-### Step 5: Build and Push Docker Image (Phase 2)
-
+4. **Build and Push Docker Image:**
 ```bash
 cd ../..
 chmod +x scripts/build-and-push.sh
 ./scripts/build-and-push.sh dev ./app latest
 ```
 
-### Step 6: Launch EC2 Instances (Phase 3)
-
+5. **Launch EC2 Instances:**
 Edit `environments/dev/terraform.tfvars`:
+```hcl
+desired_capacity = 2
+min_size         = 2
+```
+
+```bash
+cd environments/dev
+terraform apply
+```
+
+6. **Setup GitHub Secrets for CI/CD:**
+```bash
+cd ..
+gh auth login
+chmod +x scripts/set-github-secrets.sh
+./scripts/set-github-secrets.sh
+```
+
+#### Daily Workflow (After Setup)
+
+Simply push to main:
+```bash
+git add .
+git commit -m "feat: update infrastructure"
+git push origin main
+```
+
+The CI/CD pipeline automatically:
+- ✅ Validates Terraform
+- ✅ Builds Docker image
+- ✅ Pushes to ECR
+- ✅ Runs terraform plan
+- ✅ Applies changes
+
+---
+
+### Option 2: Manual Deployment (Three-Phase)
+
+For initial setup or when CI/CD is not configured:
+
+#### Phase 1: Infrastructure Setup
+
+```bash
+cd environments/dev
+terraform init
+terraform apply
+```
+
+This creates all resources except EC2 instances (desired_capacity = 0).
+
+#### Phase 2: Build and Push Application
+
+```bash
+cd ../..
+./scripts/build-and-push.sh dev ./app latest
+```
+
+#### Phase 3: Launch EC2 Instances
+
+Update `terraform.tfvars`:
 ```hcl
 desired_capacity = 2
 min_size         = 2
@@ -333,11 +474,12 @@ min_size         = 2
 
 Apply changes:
 ```bash
-cd environments/dev
 terraform apply
 ```
 
-### Step 7: Verify Deployment
+---
+
+### Verify Deployment
 
 ```bash
 terraform output alb_dns_name
@@ -369,6 +511,23 @@ Visit the ALB URL in your browser (wait 5-7 minutes for instances to initialize)
 - Verify target group port is 3000
 - Check security group allows port 3000 from ALB
 
+### Database Connection Failed
+- Verify RDS instance is available: `aws rds describe-db-instances`
+- Check security group allows port 5432 from EC2
+- Verify credentials in Secrets Manager
+- Check user data logs: `sudo cat /var/log/user-data.log`
+
+### GitHub Actions Workflow Fails
+- Check workflow logs in GitHub Actions tab
+- Verify `AWS_ROLE_ARN` secret is set correctly
+- Ensure GitHub Actions has required permissions
+- Check OIDC provider is configured
+
+### Terraform Plan/Apply Hangs in CI/CD
+- Ensure all 32 `TF_VAR_*` secrets are set in GitHub
+- Run `./scripts/set-github-secrets.sh` to populate secrets
+- Verify secrets match local `terraform.tfvars` values
+
 ---
 
 ## Cost Considerations
@@ -398,3 +557,4 @@ For issues or questions:
 - Open an issue on GitHub
 - Review AWS documentation
 - Check Terraform documentation
+- Check GitHub Actions documentation

@@ -2,9 +2,9 @@
 
 ## Overview
 
-StartupHub Infrastructure is a production-style AWS cloud environment built using **Terraform Infrastructure as Code (IaC)**.
+StartupHub Infrastructure is a production-style AWS cloud environment built using **Terraform Infrastructure as Code (IaC)** with full CI/CD automation.
 
-This project provisions and manages a secure, scalable, and highly available AWS architecture using Terraform modules with containerized application deployment.
+This project provisions and manages a secure, scalable, and highly available AWS architecture using Terraform modules with containerized application deployment and automated deployment pipelines.
 
 The infrastructure follows AWS best practices by:
 
@@ -15,6 +15,7 @@ The infrastructure follows AWS best practices by:
 - Storing database credentials securely using AWS Secrets Manager
 - Auto-scaling containerized workloads
 - Deploying resources using reusable Terraform modules
+- **Automating deployments via GitHub Actions CI/CD pipeline**
 
 ---
 
@@ -49,6 +50,58 @@ The infrastructure follows AWS best practices by:
                              RDS PostgreSQL
                           (Private Subnet)
 ```
+
+---
+
+## CI/CD Pipeline
+
+### Automated Deployment Workflow
+
+Every push to the `main` branch triggers a fully automated deployment pipeline:
+
+```
+git push origin main
+    ↓
+GitHub Actions starts automatically
+    ↓
+┌─────────────────────────────────┐
+│ 1. Validate Terraform           │
+│    - terraform fmt -check       │
+│    - terraform validate         │
+└────────────────┬────────────────┘
+                 ↓
+┌─────────────────────────────────┐
+│ 2. Build & Push Docker Image    │
+│    - Build from app/            │
+│    - Push to ECR                │
+└────────────────┬────────────────┘
+                 ↓
+┌─────────────────────────────────┐
+│ 3. Terraform Plan               │
+│    - Read secrets               │
+│    - Show changes               │
+└────────────────┬────────────────┘
+                 ↓
+┌─────────────────────────────────┐
+│ 4. Terraform Apply              │
+│    - Deploy changes             │
+└─────────────────────────────────┘
+```
+
+### Secrets Management
+
+All 32 infrastructure variables are stored securely in GitHub Secrets:
+
+- ✅ Zero secrets in git repository
+- ✅ Encrypted at rest in GitHub
+- ✅ Automatically injected during workflow runs
+- ✅ Easy rotation via `gh secret set` command
+
+**Key Features:**
+- OIDC authentication (no AWS access keys)
+- Path-based triggers (only runs when relevant files change)
+- Automatic validation, build, and deployment
+- Full audit trail in GitHub Actions
 
 ---
 
@@ -278,6 +331,10 @@ When EC2 instances launch, user data automatically:
 ```
 startuphub-infrastructure/
 │
+├── .github/
+│   └── workflows/
+│       └── ci-cd.yml              # CI/CD pipeline definition
+│
 ├── app/                          # Application source code
 │   ├── Dockerfile
 │   ├── server.js
@@ -285,13 +342,14 @@ startuphub-infrastructure/
 │   └── .dockerignore
 │
 ├── scripts/                      # Automation scripts
-│   └── build-and-push.sh
+│   ├── build-and-push.sh
+│   └── set-github-secrets.sh     # Gitignored (contains secrets)
 │
 ├── environments/
 │   └── dev/
 │       ├── main.tf
 │       ├── variables.tf
-│       ├── terraform.tfvars
+│       ├── terraform.tfvars        # Gitignored (contains secrets)
 │       ├── outputs.tf
 │       └── backend.tf
 │
@@ -318,6 +376,11 @@ startuphub-infrastructure/
 │   │   ├── variables.tf
 │   │   └── outputs.tf
 │   │
+│   ├── iam/
+│   │   ├── main.tf
+│   │   ├── variables.tf
+│   │   └── outputs.tf
+│   │
 │   ├── networking/
 │   │   ├── main.tf
 │   │   ├── variables.tf
@@ -333,8 +396,12 @@ startuphub-infrastructure/
 │       ├── variables.tf
 │       └── outputs.tf
 │
+├── docs/
+│   └── CI-CD-SETUP.md
+│
 ├── README.md
 ├── dependencies.md
+├── milestone-history.md
 └── .gitignore
 ```
 
@@ -342,69 +409,55 @@ startuphub-infrastructure/
 
 ## Deployment Workflow
 
-### Phase 1: Infrastructure Setup
+### Automated Deployment (Recommended)
 
-Navigate to the environment directory:
+Simply push to main branch:
+
+```bash
+git add .
+git commit -m "feat: update infrastructure"
+git push origin main
+```
+
+The CI/CD pipeline automatically:
+1. Validates Terraform code
+2. Builds and pushes Docker image to ECR
+3. Runs terraform plan
+4. Applies infrastructure changes
+
+### Manual Deployment (Three-Phase)
+
+For initial setup or when CI/CD is not configured:
+
+#### Phase 1: Infrastructure Setup
 
 ```bash
 cd environments/dev
-```
-
-Initialize Terraform:
-
-```bash
 terraform init
-```
-
-Deploy infrastructure with EC2 scaled to 0:
-
-```bash
 terraform apply
 ```
 
-This creates all resources except EC2 instances, avoiding race conditions.
+This creates all resources except EC2 instances (desired_capacity = 0).
 
----
-
-### Phase 2: Build and Push Application
-
-Return to project root:
+#### Phase 2: Build and Push Application
 
 ```bash
 cd ../..
-```
-
-Build and push the Docker image:
-
-```bash
 ./scripts/build-and-push.sh dev ./app latest
 ```
 
----
+#### Phase 3: Launch EC2 Instances
 
-### Phase 3: Launch EC2 Instances
-
-Update `terraform.tfvars` to enable scaling:
-
+Update `terraform.tfvars`:
 ```hcl
 desired_capacity = 2
 min_size         = 2
 ```
 
 Apply changes:
-
 ```bash
 terraform apply
 ```
-
-EC2 instances will:
-
-1. Launch and run user data script
-2. Install Docker
-3. Pull the container image from ECR
-4. Start the application
-5. Register with ALB target group
-6. Pass health checks
 
 ---
 
@@ -420,6 +473,38 @@ Visit the URL in your browser:
 
 ```
 http://<alb-dns-name>
+```
+
+---
+
+## Disaster Recovery
+
+### Complete Recovery Process (20 minutes from zero)
+
+```bash
+# 1. Clone and configure
+git clone git@github.com:OsikanyiTheDev/startuphub-infrastructure.git
+cd startuphub-infrastructure
+aws configure
+
+# 2. Deploy infrastructure
+cd environments/dev
+terraform init
+terraform apply
+
+# 3. Push Docker image
+cd ../..
+./scripts/build-and-push.sh dev ./app latest
+
+# 4. Launch EC2 instances
+cd environments/dev
+# Edit terraform.tfvars: desired_capacity = 2
+terraform apply
+
+# 5. Setup CI/CD (optional)
+cd ..
+gh auth login
+./scripts/set-github-secrets.sh
 ```
 
 ---
@@ -442,6 +527,10 @@ http://<alb-dns-name>
 ✅ Security Group isolation
 ✅ Encrypted storage
 ✅ Infrastructure as Code approach
+✅ **GitHub Actions CI/CD pipeline**
+✅ **Automated deployments on git push**
+✅ **32 secrets managed in GitHub**
+✅ **OIDC authentication (no AWS keys)**
 
 ---
 
@@ -453,11 +542,10 @@ Planned improvements:
 - Route53 DNS integration
 - CloudWatch monitoring and alarms
 - Centralized logging
-- Terraform remote backend using S3 and DynamoDB
-- GitHub Actions CI/CD pipeline
 - AWS WAF integration
 - Blue/Green deployments
 - Container orchestration with ECS/EKS
+- Multi-environment (dev/staging/prod)
 
 ---
 
@@ -479,6 +567,9 @@ This project demonstrates practical experience with:
 - Secrets Management
 - DevOps Practices
 - Automation Scripting
+- **GitHub Actions CI/CD**
+- **OIDC Authentication**
+- **Infrastructure Automation**
 
 ---
 
@@ -492,6 +583,8 @@ Cloud Engineering / DevOps Portfolio Project
 ---
 
 ## Version History
+
+- **v0.6.0** - CI/CD pipeline with GitHub Actions automation
 - **v0.5.0** - Docker/ECR integration with containerized deployment
 - **v0.4.0** - RDS PostgreSQL with Secrets Manager
 - **v0.3.0** - Security hardening (IAM, SSM, encryption)

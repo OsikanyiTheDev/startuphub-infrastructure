@@ -2,7 +2,474 @@
 
 ---
 
-# v0.5.0 - Production-Ready Containerized Deployment (Current)
+# v0.6.0 - CI/CD Pipeline with GitHub Actions (Current)
+
+**Date:** July 2026
+
+## Overview
+
+Achieved full CI/CD automation with GitHub Actions, enabling zero-touch deployments. Every push to the `main` branch now automatically validates infrastructure, builds and pushes Docker images to ECR, and applies Terraform changes to AWS.
+
+This milestone transforms the project from manual deployments to production-grade automated CI/CD pipelines with zero secrets in git.
+
+---
+
+## Major Achievements
+
+### Full CI/CD Automation
+
+Implemented a 4-stage GitHub Actions workflow:
+
+```
+git push → Validate → Build & Push → Plan → Apply
+```
+
+**Workflow Stages:**
+
+1. **Validate Terraform**
+   - Runs `terraform fmt -check -recursive`
+   - Runs `terraform validate`
+   - Catches syntax errors before deployment
+
+2. **Build and Push Docker Image**
+   - Authenticates to ECR via OIDC
+   - Builds Docker image from `app/`
+   - Tags as `latest`
+   - Pushes to ECR repository
+
+3. **Terraform Plan**
+   - Generates `terraform.tfvars` from 32 GitHub Secrets
+   - Runs `terraform plan`
+   - Shows planned changes before apply
+
+4. **Terraform Apply**
+   - Automatically applies infrastructure changes
+   - No manual approval required
+   - Full audit trail in GitHub Actions
+
+### OIDC Authentication
+
+Eliminated AWS access keys entirely by implementing GitHub Actions OIDC:
+
+```yaml
+permissions:
+  id-token: write
+  contents: read
+```
+
+**Benefits:**
+- No AWS credentials stored in GitHub
+- Temporary credentials auto-rotate
+- Scoped to specific repository
+- Enhanced security posture
+
+### Secrets Management with GitHub Secrets
+
+All 32 infrastructure variables stored securely in GitHub Secrets:
+
+```bash
+# Automated setup script
+./scripts/set-github-secrets.sh
+```
+
+**Secrets Include:**
+- Project configuration (project_name, region, vpc_cidr)
+- Network configuration (subnet CIDRs)
+- EC2 configuration (ami_id, instance_type)
+- ASG configuration (desired_capacity, min_size, max_size)
+- RDS configuration (engine, version, credentials)
+- ECR configuration (image_tag, scan_on_push)
+- GitHub repository reference
+
+**Security:**
+- ✅ Zero secrets in git repository
+- ✅ Encrypted at rest in GitHub
+- ✅ Automatically injected during workflow runs
+- ✅ Easy rotation via `gh secret set` command
+
+### IAM Module for GitHub Actions
+
+Created new IAM module (`modules/iam/`) to support CI/CD:
+
+```
+modules/iam/
+├── main.tf        # OIDC provider + IAM role
+├── variables.tf   # github_repository variable
+└── outputs.tf     # github_actions_role_arn output
+```
+
+**IAM Role Permissions:**
+- AmazonVPCFullAccess
+- AmazonEC2FullAccess
+- AmazonRDSFullAccess
+- ElasticLoadBalancingFullAccess
+- AutoScalingFullAccess
+- AmazonEC2ContainerRegistryFullAccess
+- IAMFullAccess
+- SecretsManagerReadWrite
+- AmazonS3FullAccess
+
+### GitHub CLI Integration
+
+Added automation scripts for GitHub CLI:
+
+```bash
+# Install GitHub CLI
+sudo apt install gh -y
+
+# Authenticate
+gh auth login
+
+# Push secrets
+./scripts/set-github-secrets.sh
+```
+
+**Automation Script:** `scripts/set-github-secrets.sh`
+- Automatically sets all 32 secrets from `terraform.tfvars`
+- One command replaces 32 manual clicks
+- Gitignored (contains sensitive values)
+
+### Path-Based Triggers
+
+Workflow only runs when relevant files change:
+
+```yaml
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'modules/**'
+      - 'environments/dev/**'
+      - 'app/**'
+      - 'scripts/**'
+      - '.github/workflows/**'
+```
+
+**Benefits:**
+- Faster feedback (no wasted runs)
+- Reduced GitHub Actions minutes
+- Clear trigger conditions
+
+---
+
+## Workflow Configuration
+
+### GitHub Actions Workflow
+
+**File:** `.github/workflows/ci-cd.yml`
+
+```yaml
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - terraform fmt -check -recursive
+      - terraform init
+      - terraform validate
+
+  build-and-push:
+    needs: validate
+    steps:
+      - aws-actions/configure-aws-credentials (OIDC)
+      - aws-actions/amazon-ecr-login
+      - docker build
+      - docker push
+
+  terraform-plan:
+    needs: build-and-push
+    steps:
+      - Generate terraform.tfvars from secrets
+      - terraform init
+      - terraform plan
+
+  terraform-apply:
+    needs: terraform-plan
+    steps:
+      - Generate terraform.tfvars from secrets
+      - terraform init
+      - terraform apply -auto-approve
+```
+
+**Execution Time:** ~5-7 minutes per run
+
+---
+
+## Infrastructure Updates
+
+### New Module: IAM
+
+Added IAM module for GitHub Actions OIDC authentication:
+
+```hcl
+module "iam" {
+  source              = "../../modules/iam"
+  project_name        = var.project_name
+  github_repository   = var.github_repository
+}
+```
+
+**Resources Created:**
+- `aws_iam_openid_connect_provider.github`
+- `aws_iam_role.github_actions`
+- `aws_iam_role_policy_attachment.*` (9 policies)
+
+---
+
+## Documentation Updates
+
+### README.md
+
+Added comprehensive CI/CD section:
+- Automated deployment workflow diagram
+- Secrets management explanation
+- OIDC authentication details
+- Disaster recovery process (20 minutes from zero)
+
+### dependencies.md
+
+Added new dependencies:
+- GitHub CLI (gh) installation and authentication
+- AWS Session Manager Plugin for EC2 access
+- Updated deployment steps for CI/CD workflow
+
+### milestone-history.md
+
+Documented v0.6.0 achievements:
+- Full CI/CD automation details
+- OIDC authentication benefits
+- Secrets management approach
+- Lessons learned
+
+---
+
+## Validation Completed
+
+✅ Terraform fmt clean
+✅ Terraform validate successful
+✅ GitHub Actions workflow runs successfully
+✅ All 4 jobs complete (Validate, Build, Plan, Apply)
+✅ OIDC authentication works (no AWS keys)
+✅ 32 secrets stored in GitHub Secrets
+✅ Docker image automatically built and pushed
+✅ Infrastructure automatically applied
+✅ Zero secrets in git repository
+✅ All documentation updated
+
+---
+
+## Deployment Verification
+
+### Check GitHub Actions Workflow
+
+```bash
+# Via GitHub CLI
+gh run list
+
+# Via browser
+# https://github.com/OsikanyiTheDev/startuphub-infrastructure/actions
+```
+
+### Check Secrets
+
+```bash
+gh secret list
+```
+
+Expected: 32 `TF_VAR_*` secrets + `AWS_ROLE_ARN`
+
+### Test Automatic Deployment
+
+```bash
+# Make a change
+echo "# Test $(date)" >> README.md
+git add README.md
+git commit -m "test: trigger CI/CD"
+git push origin main
+
+# Watch workflow run
+gh run watch
+```
+
+---
+
+## Lessons Learned
+
+### Secrets Management in CI/CD
+
+**Challenge:** How to manage 32 variables without storing them in git?
+
+**Solution:** GitHub Secrets + automated setup script
+
+**Key Insights:**
+- Never commit `terraform.tfvars` (gitignored)
+- Use `gh secret set` for automation
+- Store secrets as `TF_VAR_*` prefix
+- One script to rule them all
+
+### OIDC vs Access Keys
+
+**Challenge:** AWS credentials in GitHub Secrets are a security risk
+
+**Solution:** GitHub Actions OIDC (OpenID Connect)
+
+**Key Insights:**
+- OIDC provides temporary credentials
+- No long-lived keys to manage
+- Scoped to specific repository
+- Industry best practice
+
+### Workflow Trigger Conditions
+
+**Challenge:** Workflow runs on every push, wasting time
+
+**Solution:** Path-based triggers
+
+**Key Insights:**
+- Only run when relevant files change
+- Use `paths:` filter in workflow
+- Saves GitHub Actions minutes
+- Faster feedback loop
+
+### Terraform Plan Hanging
+
+**Challenge:** `terraform plan` hangs for 3 hours in CI/CD
+
+**Root Cause:** Missing `terraform.tfvars` causes interactive prompts
+
+**Solution:** Generate `terraform.tfvars` from GitHub Secrets before running plan
+
+**Key Insights:**
+- Always generate tfvars in CI/CD
+- Use `cat > terraform.tfvars <<EOF` heredoc
+- Inject secrets at runtime
+- Never commit tfvars
+
+### Manual vs Automatic Apply
+
+**Challenge:** Should `terraform apply` be manual or automatic?
+
+**Decision:** Automatic for this project
+
+**Rationale:**
+- Dev environment, low risk
+- Full audit trail in GitHub Actions
+- Faster iteration
+- Production would use manual approval
+
+**For Production:**
+- Add `environment: production` gate
+- Require manual approval
+- Use GitHub Environments
+
+---
+
+## Previous Versions
+
+### v0.5.0 - Production-Ready Containerized Deployment
+
+- Working container deployment with Docker
+- ECR integration for image storage
+- Port configuration fixed (80 → 3000)
+- User data script validated
+- Security group architecture documented
+- Three-phase deployment working
+
+### v0.4.0 - Docker & ECR Integration
+
+- Added ECR module
+- Created Docker application (Node.js + Express)
+- Converted user_data.sh to user_data.tpl
+- Added build-and-push.sh automation script
+- Implemented two-phase deployment strategy
+- **Status:** Integration complete but port configuration issue prevented successful deployment
+
+### v0.3.1 - Secure Rebuild Validation
+
+- Full destroy and rebuild cycle validated
+- SSH access removed
+- EC2 IAM Role with SSM
+- Secrets Manager integration
+- Private RDS deployment
+
+### v0.3.0 - Security Hardening
+
+- SSH removal
+- EC2 IAM Role
+- AWS Systems Manager access
+- Encrypted EC2 storage
+- IMDSv2 enforcement
+- Private RDS deployment
+
+### v0.2.0 - Compute and Application Layer
+
+- Application Load Balancer
+- EC2 Launch Template
+- Auto Scaling Group
+- Private EC2 deployment
+- Security Groups
+
+### v0.1.0 - Network Foundation
+
+- Terraform project structure
+- AWS VPC
+- Public and private subnets
+- Internet Gateway
+- NAT Gateway
+- Routing architecture
+
+---
+
+## Next Milestone
+
+### v0.7.0 - Monitoring & Logging
+
+Planned improvements:
+
+- CloudWatch Agent installation on EC2
+- CloudWatch Logs for Docker and application logs
+- CPU and Memory alarms
+- SNS notifications for alerts
+- CloudWatch dashboards
+- Log retention policies
+- Automated log analysis
+
+---
+
+# Project Status
+
+**Current Version:**
+
+```
+v0.6.0
+```
+
+**Status:**
+
+```
+Full CI/CD Automation
+Zero-Touch Deployments
+Production-Grade GitHub Actions Pipeline
+```
+
+**Architecture:**
+
+```
+git push → GitHub Actions → Validate → Build → Push → Plan → Apply → AWS
+                                              ↓
+                                          ECR Repository
+                                              ↓
+                                          EC2 Instances
+                                              ↓
+                                          RDS PostgreSQL
+```
+
+**Deployment Time:** 5-7 minutes (fully automated)
+
+**Manual Steps:** Zero
+
+**Secrets in Git:** Zero
+
+---
 
 **Date:** July 2026
 
@@ -382,19 +849,17 @@ This captures all output for troubleshooting.
 
 ---
 
-## Next Milestone
+## Next Milestone (from v0.5.0)
 
-### v0.6.0 - CI/CD Pipeline & Observability
+### v0.6.0 - CI/CD Pipeline
 
-Planned improvements:
+**Status:** ✅ **COMPLETED** - See v0.6.0 section above
 
-- GitHub Actions workflow for automated deployment
-- Automated Docker build and push on code merge
-- CloudWatch monitoring and alerting
-- Centralized logging with CloudWatch Logs
-- Custom metrics and dashboards
-- Blue/Green deployment strategy
-- Automated testing integration
+- ✅ GitHub Actions workflow for automated deployment
+- ✅ Automated Docker build and push on code merge
+- ✅ OIDC authentication (no AWS access keys)
+- ✅ Secrets management with GitHub Secrets
+- ✅ Fully automated terraform apply
 
 ---
 
@@ -403,23 +868,33 @@ Planned improvements:
 **Current Version:**
 
 ```
-v0.5.0
+v0.6.0
 ```
 
 **Status:**
 
 ```
-Production-Ready Containerized Deployment
-End-to-End Integration Verified
-Application Successfully Serving Traffic
+Full CI/CD Automation
+Zero-Touch Deployments
+Production-Grade GitHub Actions Pipeline
 ```
 
 **Architecture:**
 
 ```
-Terraform → ECR → EC2/Docker → ALB → Internet
-              ↓
-          RDS PostgreSQL (via Secrets Manager)
+git push → GitHub Actions → Validate → Build → Push → Plan → Apply → AWS
+                                              ↓
+                                          ECR Repository
+                                              ↓
+                                          EC2 Instances
+                                              ↓
+                                          RDS PostgreSQL
 ```
+
+**Deployment Time:** 5-7 minutes (fully automated)
+
+**Manual Steps:** Zero
+
+**Secrets in Git:** Zero
 
 ---
