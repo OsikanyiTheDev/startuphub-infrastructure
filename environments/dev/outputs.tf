@@ -53,3 +53,8 @@ output "repository_arn" {
   description = "The ARN of the ECR repository"
   value       = module.ecr.repository_arn
 }
+
+output "github_actions_role_arn" {
+  description = "ARN of the IAM role for GitHub Actions"
+  value       = module.iam.github_actions_role_arn
+}

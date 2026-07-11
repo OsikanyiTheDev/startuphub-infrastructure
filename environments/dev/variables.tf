@@ -133,3 +133,7 @@ variable "ecr_scan_on_push" {
 variable "ecr_image_tag" {
   type = string
 }
+variable "github_repository" {
+  description = "GitHub repository in owner/repo format (e.g., OsikanyiTheDev/startuphub-infrastructure)"
+  type        = string
+}

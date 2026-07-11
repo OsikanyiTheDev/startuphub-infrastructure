@@ -129,3 +129,11 @@ module "ecr" {
   image_tag_mutability = var.ecr_image_tag_mutability
   scan_on_push         = var.ecr_scan_on_push
 }
+
+module "iam" {
+  source = "../../modules/iam"
+
+  project_name      = var.project_name
+  github_repository = var.github_repository
+  aws_region = var.region
+}
