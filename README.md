@@ -493,6 +493,7 @@ Cloud Engineering / DevOps Portfolio Project
 
 ## Version History
 
+- **v0.6.0**
 - **v0.5.0** - Docker/ECR integration with containerized deployment
 - **v0.4.0** - RDS PostgreSQL with Secrets Manager
 - **v0.3.0** - Security hardening (IAM, SSM, encryption)
