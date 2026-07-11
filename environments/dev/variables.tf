@@ -72,16 +72,16 @@ variable "desired_capacity" {
 
 variable "min_size" {
   type        = number
-  description = "Minimum size of the autoscaling group"
+  description = "minimum size of the autoscaling group"
 }
 
 variable "max_size" {
   type        = number
-  description = "Maximum size of the autoscaling group"
+  description = "maximum size of the autoscaling group"
 }
 
 variable "enable_deletion_protection" {
-  description = "Enable ALB deletion protection"
+  description = "enable ALB deletion protection"
   type        = bool
 }
 
