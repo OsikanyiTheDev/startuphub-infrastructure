@@ -46,57 +46,162 @@ resource "aws_iam_role" "github_actions" {
   }
 }
 
-resource "aws_iam_role_policy_attachment" "github_actions_ec2" {
-  role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2FullAccess"
+############################################
+# Consolidated Policy for GitHub Actions
+# Replaces 11 managed policies with 1 custom policy
+############################################
+
+resource "aws_iam_policy" "github_actions" {
+  name        = "${var.project_name}-github-actions-policy"
+  description = "Consolidated policy for GitHub Actions CI/CD pipeline"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EC2"
+        Effect = "Allow"
+        Action = [
+          "ec2:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "VPC"
+        Effect = "Allow"
+        Action = [
+          "ec2:CreateVpc",
+          "ec2:DeleteVpc",
+          "ec2:ModifyVpc*",
+          "ec2:DescribeVpcs",
+          "ec2:CreateSubnet",
+          "ec2:DeleteSubnet",
+          "ec2:ModifySubnet*",
+          "ec2:DescribeSubnets",
+          "ec2:CreateRouteTable",
+          "ec2:DeleteRouteTable",
+          "ec2:DescribeRouteTables",
+          "ec2:CreateRoute",
+          "ec2:DeleteRoute",
+          "ec2:AssociateRouteTable",
+          "ec2:DisassociateRouteTable",
+          "ec2:CreateInternetGateway",
+          "ec2:DeleteInternetGateway",
+          "ec2:AttachInternetGateway",
+          "ec2:DetachInternetGateway",
+          "ec2:DescribeInternetGateways",
+          "ec2:CreateNatGateway",
+          "ec2:DeleteNatGateway",
+          "ec2:DescribeNatGateways",
+          "ec2:AllocateAddress",
+          "ec2:ReleaseAddress",
+          "ec2:DescribeAddresses",
+          "ec2:AssociateAddress",
+          "ec2:DisassociateAddress",
+          "ec2:DescribeAvailabilityZones",
+          "ec2:CreateSecurityGroup",
+          "ec2:DeleteSecurityGroup",
+          "ec2:DescribeSecurityGroups",
+          "ec2:AuthorizeSecurityGroupIngress",
+          "ec2:AuthorizeSecurityGroupEgress",
+          "ec2:RevokeSecurityGroupIngress",
+          "ec2:RevokeSecurityGroupEgress",
+          "ec2:CreateTags",
+          "ec2:DeleteTags",
+          "ec2:DescribeTags"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "RDS"
+        Effect = "Allow"
+        Action = [
+          "rds:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "ElasticLoadBalancing"
+        Effect = "Allow"
+        Action = [
+          "elasticloadbalancing:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "AutoScaling"
+        Effect = "Allow"
+        Action = [
+          "autoscaling:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "ECR"
+        Effect = "Allow"
+        Action = [
+          "ecr:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "S3"
+        Effect = "Allow"
+        Action = [
+          "s3:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "SecretsManager"
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "CloudWatchLogs"
+        Effect = "Allow"
+        Action = [
+          "logs:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "CloudWatch"
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "SNS"
+        Effect = "Allow"
+        Action = [
+          "sns:*"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "IAM"
+        Effect = "Allow"
+        Action = [
+          "iam:*"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "${var.project_name}-github-actions-policy"
+    Environment = var.project_name
+  }
 }
 
-resource "aws_iam_role_policy_attachment" "github_actions_vpc" {
+resource "aws_iam_role_policy_attachment" "github_actions" {
   role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonVPCFullAccess"
-}
-
-resource "aws_iam_role_policy_attachment" "github_actions_rds" {
-  role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonRDSFullAccess"
-}
-
-resource "aws_iam_role_policy_attachment" "github_actions_alb" {
-  role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/ElasticLoadBalancingFullAccess"
-}
-
-resource "aws_iam_role_policy_attachment" "github_actions_autoscaling" {
-  role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/AutoScalingFullAccess"
-}
-
-resource "aws_iam_role_policy_attachment" "github_actions_ecr" {
-  role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryFullAccess"
-}
-
-resource "aws_iam_role_policy_attachment" "github_actions_iam" {
-  role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/IAMFullAccess"
-}
-
-resource "aws_iam_role_policy_attachment" "github_actions_secrets" {
-  role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/SecretsManagerReadWrite"
-}
-
-resource "aws_iam_role_policy_attachment" "github_actions_s3" {
-  role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonS3FullAccess"
-}
-
-resource "aws_iam_role_policy_attachment" "github_actions_cloudwatch" {
-  role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/CloudWatchFullAccess"
-}
-
-resource "aws_iam_role_policy_attachment" "github_actions_sns" {
-  role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+  policy_arn = aws_iam_policy.github_actions.arn
 }
