@@ -154,6 +154,7 @@ jobs:
           
           github_repository = "${{ secrets.TF_VAR_github_repository }}"
           alert_email = "${{ secrets.TF_VAR_alert_email }}"
+          waf_rate_limit = ${{ secrets.TF_VAR_waf_rate_limit }}
           EOF
 
       - name: Terraform Init
@@ -230,6 +231,7 @@ jobs:
           
           github_repository = "${{ secrets.TF_VAR_github_repository }}"
           alert_email = "${{ secrets.TF_VAR_alert_email }}"
+          waf_rate_limit = ${{ secrets.TF_VAR_waf_rate_limit }}
           EOF
 
       - name: Terraform Init
