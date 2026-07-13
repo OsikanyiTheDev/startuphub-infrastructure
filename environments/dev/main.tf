@@ -178,3 +178,4 @@ module "waf" {
   alb_arn      = module.alb.alb_arn
   rate_limit   = var.waf_rate_limit
 }
+#testing WAF
