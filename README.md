@@ -25,6 +25,11 @@ The infrastructure follows AWS best practices by:
                               Internet
                                   |
                                   |
+                        AWS WAF v2 WebACL
+                    (Rate limiting, SQLi, XSS,
+                     IP reputation, bot protection)
+                                  |
+                                  |
                      Application Load Balancer
                            (Port 80)
                                   |
@@ -90,7 +95,7 @@ GitHub Actions starts automatically
 
 ### Secrets Management
 
-All 33 infrastructure variables are stored securely in GitHub Secrets:
+All 35 infrastructure variables are stored securely in GitHub Secrets:
 
 - ✅ Zero secrets in git repository
 - ✅ Encrypted at rest in GitHub
@@ -482,6 +487,74 @@ Notifications are sent via SNS to `osikanyie@gmail.com`.
 
 ---
 
+## Web Application Firewall (WAF)
+
+The ALB is protected by AWS WAF v2 with multiple layers of security:
+
+### Active Rules
+
+| Rule | Priority | Protection |
+|------|----------|------------|
+| **Rate Limiting** | 1 | Blocks IPs exceeding 2000 requests per 5 minutes |
+| **AWS Common Rules** | 2 | SQLi, XSS, RCE, SSRF, path traversal |
+| **SQL Injection** | 3 | Database attack patterns |
+| **Known Bad Inputs** | 4 | RCE, Java deserialization attacks |
+| **IP Reputation** | 5 | Blocks known malicious IP addresses |
+
+### WAF Capabilities
+
+**Rate Limiting**:
+- Prevents DDoS attacks
+- Configurable threshold (default: 2000 req/5min per IP)
+- CloudWatch metrics for monitoring
+
+**SQL Injection Protection**:
+- Blocks SQL injection attempts in query strings, headers, and body
+- Protects database from unauthorized access
+
+**Cross-Site Scripting (XSS) Protection**:
+- Filters malicious JavaScript injection attempts
+- Prevents session hijacking and data theft
+
+**IP Reputation**:
+- Automatically blocks known malicious IP addresses
+- Updated regularly by AWS threat intelligence
+
+**CloudWatch Metrics**:
+- `BlockedRequests` - Count of blocked requests
+- `AllowedRequests` - Count of allowed requests
+- Real-time monitoring of attack patterns
+
+### Testing WAF Protection
+
+**Test Rate Limiting**:
+```bash
+ALB_DNS=$(terraform output -raw alb_dns_name)
+for i in {1..100}; do
+  curl -s -o /dev/null -w "%{http_code}\n" http://$ALB_DNS/
+done
+```
+
+**Test SQL Injection Blocking**:
+```bash
+curl "http://your-alb-dns/?id=1' OR '1'='1"
+# Should return 403 Forbidden
+```
+
+**View Blocked Requests**:
+```bash
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/WAFV2 \
+  --metric-name BlockedRequests \
+  --dimensions Name=WebACL,Value=startuphub-dev-web-acl \
+  --start-time $(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%S) \
+  --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
+  --period 3600 \
+  --statistics Sum
+```
+
+---
+
 ## Deployment Workflow
 
 ### Automated Deployment (Recommended)
@@ -604,13 +677,18 @@ gh auth login
 ✅ Infrastructure as Code approach
 ✅ **GitHub Actions CI/CD pipeline**
 ✅ **Automated deployments on git push**
-✅ **33 secrets managed in GitHub**
+✅ **35 secrets managed in GitHub**
 ✅ **OIDC authentication (no AWS keys)**
 ✅ **CloudWatch centralized logging**
 ✅ **CloudWatch Agent for custom metrics**
 ✅ **CloudWatch dashboard with 8 widgets**
 ✅ **CloudWatch alarms with SNS notifications**
 ✅ **Production-grade observability**
+✅ **AWS WAF v2 Web Application Firewall**
+✅ **SQL Injection protection**
+✅ **XSS (Cross-Site Scripting) protection**
+✅ **Rate limiting (DDoS protection)**
+✅ **IP reputation filtering**
 
 ---
 
@@ -620,7 +698,6 @@ Planned improvements:
 
 - HTTPS with ACM certificates
 - Route53 DNS integration
-- AWS WAF integration
 - Blue/Green deployments
 - Container orchestration with ECS/EKS
 - Multi-environment (dev/staging/prod)
@@ -650,6 +727,8 @@ This project demonstrates practical experience with:
 - **GitHub Actions CI/CD**
 - **OIDC Authentication**
 - **Infrastructure Automation**
+- **AWS WAF (Web Application Firewall)**
+- **Web Security (SQLi, XSS, DDoS protection)**
 
 ---
 
@@ -664,6 +743,7 @@ Cloud Engineering / DevOps Portfolio Project
 
 ## Version History
 
+- **v0.9.0** - WAF (Web Application Firewall) protection (Rate limiting, SQLi, XSS, IP reputation)
 - **v0.7.0** - Monitoring & Logging (CloudWatch Logs, Agent, Alarms, Dashboard, SNS)
 - **v0.6.0** - CI/CD pipeline with GitHub Actions automation
 - **v0.5.0** - Docker/ECR integration with containerized deployment

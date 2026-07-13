@@ -269,6 +269,7 @@ The IAM user/role used for deployment needs the following managed policies:
 - `AmazonS3FullAccess` (for Terraform state backend)
 - `CloudWatchFullAccess` (for monitoring and alarms)
 - `AmazonSNSFullAccess` (for alarm notifications)
+- `AWSWAFV2FullAccess` (for WAF management)
 
 Or use `AdministratorAccess` for initial testing (not recommended for production).
 
@@ -339,8 +340,8 @@ instance_type = "t3.micro"
 ############################
 # Auto Scaling
 ############################
-desired_capacity = 2
-min_size         = 2
+desired_capacity = 0
+min_size         = 0
 max_size         = 4
 
 ############################
@@ -371,7 +372,7 @@ github_repository = "OsikanyiTheDev/startuphub-infrastructure"
 ############################
 # SNS Alerts
 ############################
-alert_email = "xxxxxx@gmail.com"
+alert_email = "osikanyie@gmail.com"
 ```
 
 **Note:** This file is gitignored to protect sensitive configuration.
@@ -528,6 +529,46 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -m ec2 -a 
 - Check email inbox for "AWS Notification - Subscription Confirmation"
 - Click "Confirm subscription" to activate alarm notifications
 
+### Verify WAF Protection
+
+**Check WAF WebACL:**
+```bash
+# List WAF WebACLs
+aws wafv2 list-web-acls --scope REGIONAL
+
+# Get WebACL details
+aws wafv2 get-web-acl \
+  --name startuphub-dev-web-acl \
+  --scope REGIONAL \
+  --id <web-acl-id>
+```
+
+**Test Rate Limiting:**
+```bash
+ALB_DNS=$(terraform output -raw alb_dns_name)
+for i in {1..100}; do
+  curl -s -o /dev/null -w "%{http_code}\n" http://$ALB_DNS/
+done
+```
+
+**Test SQL Injection Blocking:**
+```bash
+curl "http://your-alb-dns/?id=1' OR '1'='1"
+# Should return 403 Forbidden
+```
+
+**View Blocked Requests:**
+```bash
+aws cloudwatch get-metric-statistics \
+  --namespace AWS/WAFV2 \
+  --metric-name BlockedRequests \
+  --dimensions Name=WebACL,Value=startuphub-dev-web-acl \
+  --start-time $(date -u -d '1 hour ago' +%Y-%m-%dT%H:%M:%S) \
+  --end-time $(date -u +%Y-%m-%dT%H:%M:%S) \
+  --period 3600 \
+  --statistics Sum
+```
+
 ---
 
 ## Troubleshooting
@@ -587,8 +628,11 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -m ec2 -a 
   - Dashboard: Free (3 dashboards included)
   - Alarms: ~$0.10/alarm/month
   - SNS notifications: ~$0.50 for 100 notifications
+- **AWS WAF:** ~$10
+  - WebACL: ~$5/month
+  - Managed Rules: ~$1/rule/month (5 rules = ~$5/month)
 
-**Total:** ~$107-112/month
+**Total:** ~$117-122/month
 
 **Cost Optimization:**
 - Set `desired_capacity = 0` when not in use
