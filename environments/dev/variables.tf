@@ -149,3 +149,9 @@ variable "alert_email" {
   description = "Email address to receive CloudWatch alarm notifications"
   type        = string
 }
+
+
+variable "waf_rate_limit" {
+  description = "Maximum requests per 5 minutes per IP address for WAF rate limiting"
+  type        = number
+}

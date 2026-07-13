@@ -339,8 +339,8 @@ instance_type = "t3.micro"
 ############################
 # Auto Scaling
 ############################
-desired_capacity = 0
-min_size         = 0
+desired_capacity = 2
+min_size         = 2
 max_size         = 4
 
 ############################
@@ -371,7 +371,7 @@ github_repository = "OsikanyiTheDev/startuphub-infrastructure"
 ############################
 # SNS Alerts
 ############################
-alert_email = "osikanyie@gmail.com"
+alert_email = "xxxxxx@gmail.com"
 ```
 
 **Note:** This file is gitignored to protect sensitive configuration.

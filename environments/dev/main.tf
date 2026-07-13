@@ -171,4 +171,10 @@ module "cloudwatch_dashboard" {
   target_group_arn_suffix = module.alb.target_group_arn_suffix
   rds_instance_identifier = module.rds.instance_identifier
 }
-#testing for ci/cd final for cloudwatch
+
+module "waf" {
+  source       = "../../modules/waf"
+  project_name = var.project_name
+  alb_arn      = module.alb.alb_arn
+  rate_limit   = var.waf_rate_limit
+}

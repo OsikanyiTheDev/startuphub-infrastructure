@@ -63,3 +63,13 @@ output "dashboard_name" {
   description = "Name of the CloudWatch dashboard"
   value       = module.cloudwatch_dashboard.dashboard_name
 }
+
+output "web_acl_arn" {
+  description = "ARN of the WAF WebACL"
+  value       = module.waf.web_acl_arn
+}
+
+output "web_acl_name" {
+  description = "Name of the WAF WebACL"
+  value       = module.waf.web_acl_name
+}
