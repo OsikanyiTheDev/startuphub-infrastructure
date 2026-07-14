@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StartupHub - Task Manager</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <header class="header">
+      <h1>🚀 StartupHub Task Manager</h1>
+      <p class="subtitle">Powered by Node.js, Express & PostgreSQL on AWS</p>
+    </header>
+
+    <!-- Status Badge -->
+    <div id="statusBadge" class="status-badge">
+      <span id="statusText">Checking database...</span>
+    </div>
+
+    <!-- Add Task Card -->
+    <div class="card" style="animation-delay: 0.1s;">
+      <h2 class="card-title">Add New Task</h2>
+      <form class="task-form" onsubmit="addTask(event)">
+        <div class="input-wrapper">
+          <input 
+            type="text" 
+            id="taskTitle" 
+            class="task-input" 
+            placeholder="What needs to be done?" 
+            required
+            autocomplete="off"
+          >
+        </div>
+        <button type="submit" class="btn btn-primary">
+          <span>➕</span>
+          <span>Add Task</span>
+        </button>
+      </form>
+    </div>
+
+    <!-- Tasks List Card -->
+    <div class="card" style="animation-delay: 0.2s;">
+      <h2 class="card-title">Your Tasks</h2>
+      <ul class="task-list" id="taskList">
+        <li class="empty-state">
+          <div class="empty-state-icon">⏳</div>
+          <div class="empty-state-text">Loading tasks...</div>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="footer-info">
+        <div class="footer-item">
+          <span>🖥️</span>
+          <span>Instance: <strong id="instanceId">unknown</strong></span>
+        </div>
+        <div class="footer-item">
+          <span>⏰</span>
+          <span>Time: <strong id="currentTime">--</strong></span>
+        </div>
+        <div class="footer-item">
+          <span>📊</span>
+          <span>Tasks: <strong id="taskCount">0</strong></span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    // Check database status on load
+    async function checkDatabaseStatus() {
+      try {
+        const res = await fetch('/health');
+        const data = await res.json();
+        const badge = document.getElementById('statusBadge');
+        const text = document.getElementById('statusText');
+        
+        if (data.status === 'healthy') {
+          badge.className = 'status-badge ok';
+          text.textContent = 'Database Connected';
+        } else {
+          badge.className = 'status-badge error';
+          text.textContent = 'Database Disconnected';
+        }
+      } catch (err) {
+        const badge = document.getElementById('statusBadge');
+        const text = document.getElementById('statusText');
+        badge.className = 'status-badge error';
+        text.textContent = 'Database Disconnected';
+      }
+    }
+
+    // Load and display tasks
+    async function loadTasks() {
+      try {
+        const res = await fetch('/api/tasks');
+        const tasks = await res.json();
+        const list = document.getElementById('taskList');
+        const countEl = document.getElementById('taskCount');
+        
+        countEl.textContent = tasks.length;
+        
+        if (tasks.length === 0) {
+          list.innerHTML = `
+            <li class="empty-state">
+              <div class="empty-state-icon">📝</div>
+              <div class="empty-state-text">No tasks yet. Add your first task above!</div>
+            </li>
+          `;
+          return;
+        }
+        
+        list.innerHTML = tasks.map((task, index) => `
+          <li class="task-item" style="animation-delay: ${index * 0.05}s;">
+            <div class="task-content">
+              <div class="task-title">${escapeHtml(task.title)}</div>
+              <div class="task-meta">
+                <span class="task-status">${escapeHtml(task.status)}</span>
+                <span>📅 ${formatDate(task.created_at)}</span>
+              </div>
+            </div>
+            <button class="btn btn-danger" onclick="deleteTask(${task.id})">
+              <span>🗑️</span>
+              <span>Delete</span>
+            </button>
+          </li>
+        `).join('');
+      } catch (err) {
+        document.getElementById('taskList').innerHTML = `
+          <li class="empty-state">
+            <div class="empty-state-icon">❌</div>
+            <div class="empty-state-text">Failed to load tasks</div>
+          </li>
+        `;
+      }
+    }
+
+    // Add new task
+    async function addTask(event) {
+      event.preventDefault();
+      const input = document.getElementById('taskTitle');
+      const title = input.value.trim();
+      
+      if (!title) return;
+      
+      try {
+        const btn = event.target.querySelector('button');
+        btn.disabled = true;
+        btn.innerHTML = '<span class="loading"></span><span>Adding...</span>';
+        
+        await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title })
+        });
+        
+        input.value = '';
+        await loadTasks();
+        
+        btn.disabled = false;
+        btn.innerHTML = '<span>➕</span><span>Add Task</span>';
+      } catch (err) {
+        alert('Failed to add task. Please try again.');
+        const btn = event.target.querySelector('button');
+        btn.disabled = false;
+        btn.innerHTML = '<span>➕</span><span>Add Task</span>';
+      }
+    }
+
+    // Delete task
+    async function deleteTask(id) {
+      if (!confirm('Are you sure you want to delete this task?')) {
+        return;
+      }
+      
+      try {
+        await fetch('/api/tasks/' + id, { method: 'DELETE' });
+        await loadTasks();
+      } catch (err) {
+        alert('Failed to delete task. Please try again.');
+      }
+    }
+
+    // Utility: Escape HTML to prevent XSS
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Utility: Format date
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    }
+
+    // Update current time
+    function updateTime() {
+      const now = new Date();
+      document.getElementById('currentTime').textContent = now.toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+    }
+
+    // Set instance ID
+    function setInstanceId() {
+      const hostname = '${process.env.HOSTNAME || "unknown"}';
+      document.getElementById('instanceId').textContent = hostname.substring(0, 12);
+    }
+
+    // Initialize
+    checkDatabaseStatus();
+    loadTasks();
+    setInstanceId();
+    updateTime();
+    
+    // Auto-refresh
+    setInterval(loadTasks, 10000);
+    setInterval(updateTime, 1000);
+    setInterval(checkDatabaseStatus, 30000);
+  </script>
+</body>
+</html>
