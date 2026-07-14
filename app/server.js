@@ -331,6 +331,41 @@ app.get('/api/tasks', requireAuth, async (req, res) => {
   }
 });
 
+// Get single task
+app.get('/api/tasks/:id', requireAuth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const isAdmin = req.session.userRole === 'admin';
+    const userId = req.session.userId;
+
+    const query = `
+      SELECT t.*, u.username as owner_name, c.username as created_by_name
+      FROM tasks t
+      LEFT JOIN users u ON t.owner_id = u.id
+      LEFT JOIN users c ON t.created_by = c.id
+      WHERE t.id = $1
+    `;
+
+    const result = await pool.query(query, [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    const task = result.rows[0];
+    
+    // Regular users can only view their own tasks
+    if (!isAdmin && task.owner_id !== userId) {
+      return res.status(403).json({ error: 'Not authorized to view this task' });
+    }
+
+    res.json(task);
+  } catch (err) {
+    console.error('Error fetching task:', err.message);
+    res.status(500).json({ error: 'Failed to fetch task' });
+  }
+});
+
 // Create task
 app.post('/api/tasks', requireAuth, async (req, res) => {
   try {
@@ -390,8 +425,33 @@ app.put('/api/tasks/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to edit this task' });
     }
 
-    // Only admins can reassign tasks to others
-    const finalOwnerId = isAdmin ? owner_id : task.owner_id;
+    let finalTitle = title;
+    let finalDescription = description;
+    let finalStatus = status;
+    let finalPriority = priority;
+    let finalCategory = category;
+    let finalDueDate = due_date;
+    let finalOwnerId = task.owner_id;
+
+    if (isAdmin) {
+      // Admin can update all fields including reassignment
+      finalOwnerId = owner_id !== undefined ? owner_id : task.owner_id;
+    } else {
+      // Owner can only update status
+      // Fetch current task to preserve other fields
+      const currentTask = await pool.query(
+        'SELECT title, description, priority, category, due_date FROM tasks WHERE id = $1',
+        [id]
+      );
+      
+      if (currentTask.rows.length > 0) {
+        finalTitle = currentTask.rows[0].title;
+        finalDescription = currentTask.rows[0].description;
+        finalPriority = currentTask.rows[0].priority;
+        finalCategory = currentTask.rows[0].category;
+        finalDueDate = currentTask.rows[0].due_date;
+      }
+    }
 
     const result = await pool.query(`
       UPDATE tasks
@@ -399,7 +459,7 @@ app.put('/api/tasks/:id', requireAuth, async (req, res) => {
           category = $5, due_date = $6, owner_id = $7, updated_at = CURRENT_TIMESTAMP
       WHERE id = $8
       RETURNING *
-    `, [title, description, status, priority, category, due_date, finalOwnerId, id]);
+    `, [finalTitle, finalDescription, finalStatus, finalPriority, finalCategory, finalDueDate, finalOwnerId, id]);
 
     res.json(result.rows[0]);
   } catch (err) {
@@ -408,27 +468,24 @@ app.put('/api/tasks/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Delete task
+// Delete task (admin only)
 app.delete('/api/tasks/:id', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Check if user owns the task or is admin
+    // Only admins can delete tasks
+    if (req.session.userRole !== 'admin') {
+      return res.status(403).json({ error: 'Only admins can delete tasks' });
+    }
+
+    // Check if task exists
     const taskCheck = await pool.query(
-      'SELECT owner_id FROM tasks WHERE id = $1',
+      'SELECT id FROM tasks WHERE id = $1',
       [id]
     );
 
     if (taskCheck.rows.length === 0) {
       return res.status(404).json({ error: 'Task not found' });
-    }
-
-    const task = taskCheck.rows[0];
-    const isAdmin = req.session.userRole === 'admin';
-    const isOwner = task.owner_id === req.session.userId;
-
-    if (!isAdmin && !isOwner) {
-      return res.status(403).json({ error: 'Not authorized to delete this task' });
     }
 
     await pool.query('DELETE FROM tasks WHERE id = $1', [id]);

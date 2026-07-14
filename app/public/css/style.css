@@ -289,6 +289,17 @@ textarea.form-input {
   background: var(--gray-300);
 }
 
+.btn-success {
+  background: #10b981;
+  color: white;
+}
+
+.btn-success:hover {
+  background: #059669;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+}
+
 .btn-danger {
   background: var(--danger);
   color: var(--white);
@@ -440,6 +451,12 @@ textarea.form-input {
   color: var(--danger);
   font-weight: 700;
   margin-left: 0.25rem;
+}
+
+.task-completed-badge {
+  color: var(--success);
+  font-weight: 700;
+  font-size: 0.95rem;
 }
 
 .task-actions {
