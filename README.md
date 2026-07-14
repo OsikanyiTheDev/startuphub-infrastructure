@@ -1,21 +1,83 @@
 # StartupHub AWS Infrastructure (Terraform)
 
+<div align="center">
+
+**Production-Grade AWS Infrastructure with Full CI/CD Automation**
+
+[![Terraform](https://img.shields.io/badge/Terraform-1.9.8-blue.svg)](https://www.terraform.io/)
+[![AWS](https://img.shields.io/badge/AWS-Cloud-orange.svg)](https://aws.amazon.com/)
+[![Docker](https://img.shields.io/badge/Docker-Container-2496ED.svg)](https://www.docker.com/)
+[![CI/CD](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-2088FF.svg)](https://github.com/features/actions)
+[![Version](https://img.shields.io/badge/Version-1.0.0-green.svg)](https://github.com/OsikanyiTheDev/startuphub-infrastructure/releases/tag/v1.0.0)
+
+</div>
+
+---
+
 ## Overview
 
-StartupHub Infrastructure is a production-style AWS cloud environment built using **Terraform Infrastructure as Code (IaC)** with full CI/CD automation.
+StartupHub Infrastructure is a production-ready AWS cloud environment built using **Terraform Infrastructure as Code (IaC)** with full CI/CD automation. This project demonstrates enterprise-level cloud architecture with containerized applications, comprehensive security, and automated operations.
 
-This project provisions and manages a secure, scalable, and highly available AWS architecture using Terraform modules with containerized application deployment and automated deployment pipelines.
+**Key Achievements:**
+- ✅ 13 reusable Terraform modules
+- ✅ Fully automated CI/CD pipeline
+- ✅ Zero hardcoded credentials (OIDC + Secrets Manager)
+- ✅ Production-grade security (WAF, IAM, encryption)
+- ✅ Complete observability (CloudWatch logs, metrics, alarms)
+- ✅ High availability (multi-AZ, auto-scaling ready)
 
-The infrastructure follows AWS best practices by:
+---
 
-- Separating workloads into public and private networks
-- Deploying containerized applications via Amazon ECR
-- Using AWS Systems Manager for secure instance management
-- Implementing IAM least-privilege access
-- Storing database credentials securely using AWS Secrets Manager
-- Auto-scaling containerized workloads
-- Deploying resources using reusable Terraform modules
-- **Automating deployments via GitHub Actions CI/CD pipeline**
+## 📚 Documentation
+
+Comprehensive documentation is available in the following files:
+
+| Document | Description |
+|----------|-------------|
+| **[ARCHITECTURE.md](./ARCHITECTURE.md)** | Detailed system architecture with diagrams |
+| **[DEPLOYMENT.md](./DEPLOYMENT.md)** | Step-by-step deployment guide |
+| **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** | Common issues and solutions |
+| **[COST.md](./COST.md)** | Detailed cost analysis and optimization |
+| **[RELEASE_NOTES_v1.0.0.md](./RELEASE_NOTES_v1.0.0.md)** | v1.0.0 release announcement |
+| **[CHANGELOG.md](./CHANGELOG.md)** | Complete version history |
+| **[milestone-history.md](./milestone-history.md)** | Project evolution and lessons learned |
+
+---
+
+## Quick Start
+
+Deploy the entire infrastructure in 30 minutes:
+
+```bash
+# 1. Clone repository
+git clone git@github.com:OsikanyiTheDev/startuphub-infrastructure.git
+cd startuphub-infrastructure
+
+# 2. Configure AWS credentials
+aws configure
+
+# 3. Initialize Terraform
+cd environments/dev
+terraform init
+
+# 4. Deploy Phase 1: Infrastructure (10-15 min)
+terraform apply
+
+# 5. Deploy Phase 2: Docker Image (2-5 min)
+cd ../..
+./scripts/build-and-push.sh
+
+# 6. Deploy Phase 3: EC2 Instances (5-10 min)
+cd environments/dev
+# Update terraform.tfvars: desired_capacity = 2
+terraform apply
+
+# 7. Access application
+terraform output alb_dns_name
+# Open http://<alb-dns-name> in browser
+```
+
+**For detailed instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md)**
 
 ---
 
@@ -743,7 +805,9 @@ Cloud Engineering / DevOps Portfolio Project
 
 ## Version History
 
+- **v1.0.0** - Production Release (Comprehensive documentation, ARCHITECTURE.md, DEPLOYMENT.md, TROUBLESHOOTING.md, COST.md, RELEASE_NOTES, CHANGELOG)
 - **v0.9.0** - WAF (Web Application Firewall) protection (Rate limiting, SQLi, XSS, IP reputation)
+- **v0.8.0** - Skipped (HTTPS/ACM - requires domain ownership)
 - **v0.7.0** - Monitoring & Logging (CloudWatch Logs, Agent, Alarms, Dashboard, SNS)
 - **v0.6.0** - CI/CD pipeline with GitHub Actions automation
 - **v0.5.0** - Docker/ECR integration with containerized deployment
@@ -751,3 +815,5 @@ Cloud Engineering / DevOps Portfolio Project
 - **v0.3.0** - Security hardening (IAM, SSM, encryption)
 - **v0.2.0** - Load balancer and auto scaling
 - **v0.1.0** - Initial VPC and networking setup
+
+For detailed release information, see [RELEASE_NOTES_v1.0.0.md](./RELEASE_NOTES_v1.0.0.md) and [CHANGELOG.md](./CHANGELOG.md).
