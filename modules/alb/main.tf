@@ -36,6 +36,12 @@ resource "aws_lb_target_group" "this" {
     unhealthy_threshold = 2
   }
 
+  stickiness {
+    type            = "lb_cookie"
+    cookie_duration = 86400
+    enabled         = true
+  }
+
   tags = {
     Name = "${var.name}-tg"
   }

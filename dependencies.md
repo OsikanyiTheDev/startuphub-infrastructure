@@ -239,6 +239,20 @@ npm --version
 
 ---
 
+## Application Dependencies
+
+The Task Manager application includes these Node.js packages (automatically installed during Docker build):
+
+### Core Dependencies
+- **express** - Web framework for building the REST API
+- **express-session** - Session management for user authentication
+- **pg** - PostgreSQL database client
+- **bcrypt** - Password hashing for secure authentication
+
+These dependencies are specified in `app/package.json` and installed automatically when the Docker image is built. No manual installation is required.
+
+---
+
 ## AWS Configuration
 
 ### 1. AWS Account

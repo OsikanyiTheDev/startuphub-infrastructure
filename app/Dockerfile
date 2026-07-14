@@ -3,6 +3,9 @@
 #########################################
 FROM node:18-alpine AS builder
 
+# Install build dependencies for native modules (bcrypt)
+RUN apk add --no-cache python3 make g++
+
 WORKDIR /app
 
 # Copy package files first (leverages Docker cache)

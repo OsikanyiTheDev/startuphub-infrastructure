@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StartupHub - Task Manager</title>
+  <title>StartupHub Task Manager</title>
   <link rel="stylesheet" href="/css/style.css">
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚀</text></svg>">
 </head>
 <body>
   <div class="container">
@@ -13,224 +12,618 @@
     <header class="header">
       <h1>🚀 StartupHub Task Manager</h1>
       <p class="subtitle">Powered by Node.js, Express & PostgreSQL on AWS</p>
+      <div class="user-info" id="userInfo" style="display: none;">
+        <span>👤 <strong id="currentUser"></strong></span>
+        <span class="role-badge" id="userRole"></span>
+        <button onclick="logout()" class="btn btn-secondary">Logout</button>
+      </div>
     </header>
 
-    <!-- Status Badge -->
-    <div id="statusBadge" class="status-badge">
-      <span id="statusText">Checking database...</span>
+    <!-- Stats Dashboard -->
+    <div class="stats-dashboard" id="statsDashboard" style="display: none;">
+      <div class="stat-card">
+        <div class="stat-number" id="totalTasks">0</div>
+        <div class="stat-label">Total Tasks</div>
+      </div>
+      <div class="stat-card todo">
+        <div class="stat-number" id="todoCount">0</div>
+        <div class="stat-label">To Do</div>
+      </div>
+      <div class="stat-card in-progress">
+        <div class="stat-number" id="inProgressCount">0</div>
+        <div class="stat-label">In Progress</div>
+      </div>
+      <div class="stat-card done">
+        <div class="stat-number" id="doneCount">0</div>
+        <div class="stat-label">Done</div>
+      </div>
+      <div class="stat-card overdue">
+        <div class="stat-number" id="overdueCount">0</div>
+        <div class="stat-label">Overdue</div>
+      </div>
     </div>
 
-    <!-- Add Task Card -->
-    <div class="card" style="animation-delay: 0.1s;">
-      <h2 class="card-title">Add New Task</h2>
-      <form class="task-form" onsubmit="addTask(event)">
-        <div class="input-wrapper">
-          <input 
-            type="text" 
-            id="taskTitle" 
-            class="task-input" 
-            placeholder="What needs to be done?" 
-            required
-            autocomplete="off"
-          >
+    <!-- Create Task Form -->
+    <div class="card" id="createForm" style="display: none;">
+      <h2 class="card-title">Create New Task</h2>
+      <form id="taskForm">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="title">Title *</label>
+            <input type="text" id="title" name="title" class="form-input" required>
+          </div>
         </div>
-        <button type="submit" class="btn btn-primary">
-          <span>➕</span>
-          <span>Add Task</span>
-        </button>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="description">Description</label>
+            <textarea id="description" name="description" class="form-input" rows="3"></textarea>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="status">Status</label>
+            <select id="status" name="status" class="form-input">
+              <option value="todo">To Do</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="priority">Priority</label>
+            <select id="priority" name="priority" class="form-input">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="category">Category</label>
+            <input type="text" id="category" name="category" class="form-input" placeholder="e.g., Development, Design">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="due_date">Due Date</label>
+            <input type="date" id="due_date" name="due_date" class="form-input">
+          </div>
+
+          <div class="form-group">
+            <label for="owner_id">Assigned To</label>
+            <select id="owner_id" name="owner_id" class="form-input">
+              <option value="">Unassigned</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Create Task</button>
+          <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
+        </div>
       </form>
     </div>
 
-    <!-- Tasks List Card -->
-    <div class="card" style="animation-delay: 0.2s;">
-      <h2 class="card-title">Your Tasks</h2>
-      <ul class="task-list" id="taskList">
-        <li class="empty-state">
-          <div class="empty-state-icon">⏳</div>
-          <div class="empty-state-text">Loading tasks...</div>
-        </li>
-      </ul>
+    <!-- Tasks List -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Tasks</h2>
+        <div class="filters">
+          <select id="filterStatus" class="form-input" onchange="loadTasks()">
+            <option value="">All Status</option>
+            <option value="todo">To Do</option>
+            <option value="in_progress">In Progress</option>
+            <option value="done">Done</option>
+          </select>
+          <select id="filterPriority" class="form-input" onchange="loadTasks()">
+            <option value="">All Priorities</option>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+          <select id="filterOwner" class="form-input" onchange="loadTasks()">
+            <option value="">All Users</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="task-list" id="taskList">
+        <div class="empty-state">
+          <div class="empty-icon">📝</div>
+          <div class="empty-text">Loading tasks...</div>
+        </div>
+      </div>
     </div>
 
-    <!-- Footer -->
+    <!-- User Management (Admin Only) -->
+    <div class="card" id="userManagement" style="display: none;">
+      <h2 class="card-title">User Management</h2>
+      <button onclick="showCreateUserForm()" class="btn btn-primary">Create New User</button>
+      
+      <div id="createUserForm" style="display: none; margin-top: 20px;">
+        <form id="userForm">
+          <div class="form-row">
+            <div class="form-group">
+              <label for="newUsername">Username *</label>
+              <input type="text" id="newUsername" name="username" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label for="newPassword">Password *</label>
+              <input type="password" id="newPassword" name="password" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label for="newRole">Role</label>
+              <select id="newRole" name="role" class="form-input">
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Create User</button>
+            <button type="button" class="btn btn-secondary" onclick="hideCreateUserForm()">Cancel</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="users-list" id="usersList"></div>
+    </div>
+
     <footer class="footer">
       <div class="footer-info">
-        <div class="footer-item">
-          <span>🖥️</span>
-          <span>Instance: <strong id="instanceId">unknown</strong></span>
-        </div>
-        <div class="footer-item">
-          <span>⏰</span>
-          <span>Time: <strong id="currentTime">--</strong></span>
-        </div>
-        <div class="footer-item">
-          <span>📊</span>
-          <span>Tasks: <strong id="taskCount">0</strong></span>
-        </div>
+        <span>🖥️ Instance: <strong id="instanceId">unknown</strong></span>
+        <span>⏰ Time: <strong id="currentTime"></strong></span>
       </div>
     </footer>
   </div>
 
+  <!-- Edit Task Modal -->
+  <div id="editModal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Edit Task</h2>
+        <button onclick="closeEditModal()" class="modal-close">&times;</button>
+      </div>
+      <form id="editForm">
+        <input type="hidden" id="editId">
+        <div class="form-row">
+          <div class="form-group">
+            <label for="editTitle">Title *</label>
+            <input type="text" id="editTitle" name="title" class="form-input" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="editDescription">Description</label>
+            <textarea id="editDescription" name="description" class="form-input" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="editStatus">Status</label>
+            <select id="editStatus" name="status" class="form-input">
+              <option value="todo">To Do</option>
+              <option value="in_progress">In Progress</option>
+              <option value="done">Done</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="editPriority">Priority</label>
+            <select id="editPriority" name="priority" class="form-input">
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="editCategory">Category</label>
+            <input type="text" id="editCategory" name="category" class="form-input">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="editDueDate">Due Date</label>
+            <input type="date" id="editDueDate" name="due_date" class="form-input">
+          </div>
+          <div class="form-group">
+            <label for="editOwnerId">Assigned To</label>
+            <select id="editOwnerId" name="owner_id" class="form-input">
+              <option value="">Unassigned</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Update Task</button>
+          <button type="button" class="btn btn-secondary" onclick="closeEditModal()">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
-    // Check database status on load
-    async function checkDatabaseStatus() {
+    let currentUser = null;
+    let users = [];
+
+    // Check authentication
+    async function checkAuth() {
       try {
-        const res = await fetch('/health');
+        const res = await fetch('/auth/status');
         const data = await res.json();
-        const badge = document.getElementById('statusBadge');
-        const text = document.getElementById('statusText');
         
-        if (data.status === 'healthy') {
-          badge.className = 'status-badge ok';
-          text.textContent = 'Database Connected';
-        } else {
-          badge.className = 'status-badge error';
-          text.textContent = 'Database Disconnected';
+        if (!data.authenticated) {
+          window.location.href = '/login.html';
+          return;
         }
+        
+        currentUser = data.user;
+        document.getElementById('currentUser').textContent = data.user.username;
+        document.getElementById('userRole').textContent = data.user.role.toUpperCase();
+        document.getElementById('userRole').className = `role-badge ${data.user.role}`;
+        document.getElementById('userInfo').style.display = 'flex';
+        
+        // Show admin features
+        if (data.user.role === 'admin') {
+          document.getElementById('userManagement').style.display = 'block';
+        }
+        
+        document.getElementById('statsDashboard').style.display = 'grid';
+        document.getElementById('createForm').style.display = 'block';
+        
+        // Load data
+        await loadUsers();
+        await loadTasks();
+        await loadStats();
       } catch (err) {
-        const badge = document.getElementById('statusBadge');
-        const text = document.getElementById('statusText');
-        badge.className = 'status-badge error';
-        text.textContent = 'Database Disconnected';
+        console.error('Auth check failed:', err);
+        window.location.href = '/login.html';
       }
     }
 
-    // Load and display tasks
+    // Load users
+    async function loadUsers() {
+      try {
+        const res = await fetch('/users');
+        users = await res.json();
+        
+        // Populate owner dropdowns
+        const ownerSelects = ['owner_id', 'editOwnerId', 'filterOwner'];
+        ownerSelects.forEach(selectId => {
+          const select = document.getElementById(selectId);
+          const currentValue = select.value;
+          
+          if (selectId === 'filterOwner') {
+            select.innerHTML = '<option value="">All Users</option>';
+          } else {
+            select.innerHTML = '<option value="">Unassigned</option>';
+          }
+          
+          users.forEach(user => {
+            const option = document.createElement('option');
+            option.value = user.id;
+            option.textContent = user.username;
+            select.appendChild(option);
+          });
+          
+          select.value = currentValue;
+        });
+        
+        // Load users list for admin
+        if (currentUser.role === 'admin') {
+          loadUsersList();
+        }
+      } catch (err) {
+        console.error('Failed to load users:', err);
+      }
+    }
+
+    // Load users list (admin only)
+    async function loadUsersList() {
+      const usersList = document.getElementById('usersList');
+      usersList.innerHTML = users.map(user => `
+        <div class="user-item">
+          <div class="user-info">
+            <strong>${user.username}</strong>
+            <span class="role-badge ${user.role}">${user.role.toUpperCase()}</span>
+          </div>
+          <small>Created: ${new Date(user.created_at).toLocaleDateString()}</small>
+        </div>
+      `).join('');
+    }
+
+    // Load tasks
     async function loadTasks() {
       try {
         const res = await fetch('/api/tasks');
-        const tasks = await res.json();
-        const list = document.getElementById('taskList');
-        const countEl = document.getElementById('taskCount');
+        let tasks = await res.json();
         
-        countEl.textContent = tasks.length;
+        // Apply filters
+        const statusFilter = document.getElementById('filterStatus').value;
+        const priorityFilter = document.getElementById('filterPriority').value;
+        const ownerFilter = document.getElementById('filterOwner').value;
+        
+        if (statusFilter) tasks = tasks.filter(t => t.status === statusFilter);
+        if (priorityFilter) tasks = tasks.filter(t => t.priority === priorityFilter);
+        if (ownerFilter) tasks = tasks.filter(t => t.owner_id == ownerFilter);
+        
+        const taskList = document.getElementById('taskList');
         
         if (tasks.length === 0) {
-          list.innerHTML = `
-            <li class="empty-state">
-              <div class="empty-state-icon">📝</div>
-              <div class="empty-state-text">No tasks yet. Add your first task above!</div>
-            </li>
+          taskList.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon">📝</div>
+              <div class="empty-text">No tasks found</div>
+            </div>
           `;
           return;
         }
         
-        list.innerHTML = tasks.map((task, index) => `
-          <li class="task-item" style="animation-delay: ${index * 0.05}s;">
-            <div class="task-content">
-              <div class="task-title">${escapeHtml(task.title)}</div>
-              <div class="task-meta">
-                <span class="task-status">${escapeHtml(task.status)}</span>
-                <span>📅 ${formatDate(task.created_at)}</span>
+        taskList.innerHTML = tasks.map(task => {
+          const isOwner = task.owner_id == currentUser.id;
+          const isAdmin = currentUser.role === 'admin';
+          const canEdit = isOwner || isAdmin;
+          const isOverdue = task.due_date && new Date(task.due_date) < new Date() && task.status !== 'done';
+          
+          return `
+            <div class="task-item ${isOverdue ? 'overdue' : ''} priority-${task.priority}">
+              <div class="task-header">
+                <h3 class="task-title">${escapeHtml(task.title)}</h3>
+                <div class="task-badges">
+                  <span class="badge status-${task.status}">${formatStatus(task.status)}</span>
+                  <span class="badge priority-${task.priority}">${formatPriority(task.priority)}</span>
+                  ${task.category ? `<span class="badge category">${escapeHtml(task.category)}</span>` : ''}
+                </div>
               </div>
+              
+              ${task.description ? `<p class="task-description">${escapeHtml(task.description)}</p>` : ''}
+              
+              <div class="task-meta">
+                ${task.owner_name ? `<span>👤 Assigned to: <strong>${escapeHtml(task.owner_name)}</strong></span>` : '<span>👤 Unassigned</span>'}
+                ${task.due_date ? `<span>📅 Due: ${formatDate(task.due_date)}${isOverdue ? ' <span class="overdue-label">(OVERDUE)</span>' : ''}</span>` : ''}
+                <span>🕐 Created: ${formatDateTime(task.created_at)}</span>
+                ${task.created_by_name ? `<span>📝 By: ${escapeHtml(task.created_by_name)}</span>` : ''}
+              </div>
+              
+              ${canEdit ? `
+                <div class="task-actions">
+                  <button onclick="editTask(${task.id})" class="btn btn-secondary">Edit</button>
+                  <button onclick="deleteTask(${task.id})" class="btn btn-danger">Delete</button>
+                </div>
+              ` : ''}
             </div>
-            <button class="btn btn-danger" onclick="deleteTask(${task.id})">
-              <span>🗑️</span>
-              <span>Delete</span>
-            </button>
-          </li>
-        `).join('');
+          `;
+        }).join('');
       } catch (err) {
+        console.error('Failed to load tasks:', err);
         document.getElementById('taskList').innerHTML = `
-          <li class="empty-state">
-            <div class="empty-state-icon">❌</div>
-            <div class="empty-state-text">Failed to load tasks</div>
-          </li>
+          <div class="empty-state error">
+            <div class="empty-icon">❌</div>
+            <div class="empty-text">Failed to load tasks</div>
+          </div>
         `;
       }
     }
 
-    // Add new task
-    async function addTask(event) {
-      event.preventDefault();
-      const input = document.getElementById('taskTitle');
-      const title = input.value.trim();
-      
-      if (!title) return;
-      
+    // Load stats
+    async function loadStats() {
       try {
-        const btn = event.target.querySelector('button');
-        btn.disabled = true;
-        btn.innerHTML = '<span class="loading"></span><span>Adding...</span>';
+        const res = await fetch('/api/stats');
+        const stats = await res.json();
         
-        await fetch('/api/tasks', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title })
-        });
-        
-        input.value = '';
-        await loadTasks();
-        
-        btn.disabled = false;
-        btn.innerHTML = '<span>➕</span><span>Add Task</span>';
+        document.getElementById('totalTasks').textContent = stats.total;
+        document.getElementById('todoCount').textContent = stats.todo;
+        document.getElementById('inProgressCount').textContent = stats.in_progress;
+        document.getElementById('doneCount').textContent = stats.done;
+        document.getElementById('overdueCount').textContent = stats.overdue;
       } catch (err) {
-        alert('Failed to add task. Please try again.');
-        const btn = event.target.querySelector('button');
-        btn.disabled = false;
-        btn.innerHTML = '<span>➕</span><span>Add Task</span>';
+        console.error('Failed to load stats:', err);
       }
     }
+
+    // Create task
+    document.getElementById('taskForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData);
+      
+      try {
+        const res = await fetch('/api/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        
+        if (res.ok) {
+          resetForm();
+          await loadTasks();
+          await loadStats();
+        } else {
+          alert('Failed to create task');
+        }
+      } catch (err) {
+        console.error('Failed to create task:', err);
+        alert('Failed to create task');
+      }
+    });
+
+    // Edit task
+    async function editTask(id) {
+      try {
+        const res = await fetch(`/api/tasks/${id}`);
+        const task = await res.json();
+        
+        document.getElementById('editId').value = task.id;
+        document.getElementById('editTitle').value = task.title;
+        document.getElementById('editDescription').value = task.description || '';
+        document.getElementById('editStatus').value = task.status;
+        document.getElementById('editPriority').value = task.priority;
+        document.getElementById('editCategory').value = task.category || '';
+        document.getElementById('editDueDate').value = task.due_date ? task.due_date.split('T')[0] : '';
+        document.getElementById('editOwnerId').value = task.owner_id || '';
+        
+        document.getElementById('editModal').style.display = 'block';
+      } catch (err) {
+        console.error('Failed to load task:', err);
+        alert('Failed to load task');
+      }
+    }
+
+    // Update task
+    document.getElementById('editForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const id = document.getElementById('editId').value;
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData);
+      
+      try {
+        const res = await fetch(`/api/tasks/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        
+        if (res.ok) {
+          closeEditModal();
+          await loadTasks();
+          await loadStats();
+        } else {
+          alert('Failed to update task');
+        }
+      } catch (err) {
+        console.error('Failed to update task:', err);
+        alert('Failed to update task');
+      }
+    });
 
     // Delete task
     async function deleteTask(id) {
-      if (!confirm('Are you sure you want to delete this task?')) {
-        return;
-      }
+      if (!confirm('Are you sure you want to delete this task?')) return;
       
       try {
-        await fetch('/api/tasks/' + id, { method: 'DELETE' });
-        await loadTasks();
+        const res = await fetch(`/api/tasks/${id}`, {
+          method: 'DELETE'
+        });
+        
+        if (res.ok) {
+          await loadTasks();
+          await loadStats();
+        } else {
+          alert('Failed to delete task');
+        }
       } catch (err) {
-        alert('Failed to delete task. Please try again.');
+        console.error('Failed to delete task:', err);
+        alert('Failed to delete task');
       }
     }
 
-    // Utility: Escape HTML to prevent XSS
+    // Create user (admin only)
+    document.getElementById('userForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData);
+      
+      try {
+        const res = await fetch('/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
+        
+        if (res.ok) {
+          hideCreateUserForm();
+          await loadUsers();
+          alert('User created successfully');
+        } else {
+          const error = await res.json();
+          alert(error.error || 'Failed to create user');
+        }
+      } catch (err) {
+        console.error('Failed to create user:', err);
+        alert('Failed to create user');
+      }
+    });
+
+    // Utility functions
+    function formatStatus(status) {
+      const statusMap = {
+        todo: 'To Do',
+        in_progress: 'In Progress',
+        done: 'Done'
+      };
+      return statusMap[status] || status;
+    }
+
+    function formatPriority(priority) {
+      const priorityMap = {
+        low: 'Low',
+        medium: 'Medium',
+        high: 'High',
+        critical: 'Critical'
+      };
+      return priorityMap[priority] || priority;
+    }
+
+    function formatDate(date) {
+      return new Date(date).toLocaleDateString();
+    }
+
+    function formatDateTime(datetime) {
+      return new Date(datetime).toLocaleString();
+    }
+
     function escapeHtml(text) {
+      if (!text) return '';
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
     }
 
-    // Utility: Format date
-    function formatDate(dateString) {
-      const date = new Date(dateString);
-      return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
+    function resetForm() {
+      document.getElementById('taskForm').reset();
+      document.getElementById('priority').value = 'medium';
     }
 
-    // Update current time
+    function closeEditModal() {
+      document.getElementById('editModal').style.display = 'none';
+    }
+
+    function showCreateUserForm() {
+      document.getElementById('createUserForm').style.display = 'block';
+    }
+
+    function hideCreateUserForm() {
+      document.getElementById('createUserForm').style.display = 'none';
+      document.getElementById('userForm').reset();
+    }
+
+    async function logout() {
+      try {
+        await fetch('/logout', { method: 'POST' });
+        window.location.href = '/login.html';
+      } catch (err) {
+        console.error('Logout failed:', err);
+      }
+    }
+
+    // Update time
     function updateTime() {
-      const now = new Date();
-      document.getElementById('currentTime').textContent = now.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      });
-    }
-
-    // Set instance ID
-    function setInstanceId() {
-      const hostname = '${process.env.HOSTNAME || "unknown"}';
-      document.getElementById('instanceId').textContent = hostname.substring(0, 12);
+      document.getElementById('currentTime').textContent = new Date().toLocaleTimeString();
     }
 
     // Initialize
-    checkDatabaseStatus();
-    loadTasks();
-    setInstanceId();
+    checkAuth();
     updateTime();
-    
-    // Auto-refresh
-    setInterval(loadTasks, 10000);
     setInterval(updateTime, 1000);
-    setInterval(checkDatabaseStatus, 30000);
+    setInterval(loadTasks, 30000); // Refresh every 30 seconds
+    setInterval(loadStats, 30000);
   </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1ad6531ee0e5910',t:'MTc4Mzk5OTI2NQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
