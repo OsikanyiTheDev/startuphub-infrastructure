@@ -43,6 +43,12 @@
       </div>
     </div>
 
+    <!-- User Performance (Admin Only) -->
+    <div class="card" id="userPerformance" style="display: none;">
+      <h2 class="card-title">Team Performance</h2>
+      <div id="userPerformanceList"></div>
+    </div>
+
     <!-- Create Task Form -->
     <div class="card" id="createForm" style="display: none;">
       <h2 class="card-title">Create New Task</h2>
@@ -93,7 +99,7 @@
             <input type="date" id="due_date" name="due_date" class="form-input">
           </div>
 
-          <div class="form-group">
+          <div class="form-group" id="assignGroup" style="display: none;">
             <label for="owner_id">Assigned To</label>
             <select id="owner_id" name="owner_id" class="form-input">
               <option value="">Unassigned</option>
@@ -231,7 +237,7 @@
             <label for="editDueDate">Due Date</label>
             <input type="date" id="editDueDate" name="due_date" class="form-input">
           </div>
-          <div class="form-group">
+          <div class="form-group" id="editAssignGroup" style="display: none;">
             <label for="editOwnerId">Assigned To</label>
             <select id="editOwnerId" name="owner_id" class="form-input">
               <option value="">Unassigned</option>
@@ -270,6 +276,7 @@
         // Show admin features
         if (data.user.role === 'admin') {
           document.getElementById('userManagement').style.display = 'block';
+          document.getElementById('assignGroup').style.display = 'block';
         }
         
         document.getElementById('statsDashboard').style.display = 'grid';
@@ -285,16 +292,30 @@
       }
     }
 
-    // Load users
+    // Load users (admin only)
     async function loadUsers() {
+      if (currentUser.role !== 'admin') {
+        // Non-admins don't need to load users
+        // Hide filterOwner for non-admins
+        document.getElementById('filterOwner').parentElement.style.display = 'none';
+        return;
+      }
+
       try {
         const res = await fetch('/users');
+        if (!res.ok) {
+          console.error('Failed to load users:', res.status);
+          return;
+        }
+        
         users = await res.json();
         
         // Populate owner dropdowns
         const ownerSelects = ['owner_id', 'editOwnerId', 'filterOwner'];
         ownerSelects.forEach(selectId => {
           const select = document.getElementById(selectId);
+          if (!select) return;
+          
           const currentValue = select.value;
           
           if (selectId === 'filterOwner') {
@@ -314,9 +335,7 @@
         });
         
         // Load users list for admin
-        if (currentUser.role === 'admin') {
-          loadUsersList();
-        }
+        loadUsersList();
       } catch (err) {
         console.error('Failed to load users:', err);
       }
@@ -325,15 +344,44 @@
     // Load users list (admin only)
     async function loadUsersList() {
       const usersList = document.getElementById('usersList');
-      usersList.innerHTML = users.map(user => `
-        <div class="user-item">
-          <div class="user-info">
-            <strong>${user.username}</strong>
-            <span class="role-badge ${user.role}">${user.role.toUpperCase()}</span>
+      usersList.innerHTML = users.map(user => {
+        const canDelete = user.id !== currentUser.id;
+        return `
+          <div class="user-item">
+            <div class="user-info">
+              <strong>${user.username}</strong>
+              <span class="role-badge ${user.role}">${user.role.toUpperCase()}</span>
+            </div>
+            <div class="user-actions">
+              <small>Created: ${new Date(user.created_at).toLocaleDateString()}</small>
+              ${canDelete ? `<button onclick="deleteUser(${user.id})" class="btn btn-danger btn-sm">Delete</button>` : '<span class="current-user-badge">You</span>'}
+            </div>
           </div>
-          <small>Created: ${new Date(user.created_at).toLocaleDateString()}</small>
-        </div>
-      `).join('');
+        `;
+      }).join('');
+    }
+
+    // Delete user (admin only)
+    async function deleteUser(id) {
+      if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+      
+      try {
+        const res = await fetch(`/users/${id}`, {
+          method: 'DELETE'
+        });
+        
+        if (res.ok) {
+          await loadUsers();
+          await loadStats();
+          alert('User deleted successfully');
+        } else {
+          const error = await res.json();
+          alert(error.error || 'Failed to delete user');
+        }
+      } catch (err) {
+        console.error('Failed to delete user:', err);
+        alert('Failed to delete user');
+      }
     }
 
     // Load tasks
@@ -420,6 +468,27 @@
         document.getElementById('inProgressCount').textContent = stats.in_progress;
         document.getElementById('doneCount').textContent = stats.done;
         document.getElementById('overdueCount').textContent = stats.overdue;
+        
+        // Display user performance for admins
+        if (currentUser.role === 'admin' && stats.userStats && stats.userStats.length > 0) {
+          document.getElementById('userPerformance').style.display = 'block';
+          const performanceList = document.getElementById('userPerformanceList');
+          performanceList.innerHTML = stats.userStats.map(user => `
+            <div class="user-performance-item">
+              <div class="user-performance-info">
+                <strong>${user.username}</strong>
+                <span class="user-task-count">${user.completed_tasks} / ${user.total_tasks} tasks</span>
+              </div>
+              <div class="progress-bar-container">
+                <div class="progress-bar" style="width: ${user.completion_percentage}%">
+                  <span class="progress-text">${user.completion_percentage}%</span>
+                </div>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          document.getElementById('userPerformance').style.display = 'none';
+        }
       } catch (err) {
         console.error('Failed to load stats:', err);
       }
@@ -466,6 +535,14 @@
         document.getElementById('editCategory').value = task.category || '';
         document.getElementById('editDueDate').value = task.due_date ? task.due_date.split('T')[0] : '';
         document.getElementById('editOwnerId').value = task.owner_id || '';
+        
+        // Show assign group only for admins
+        const editAssignGroup = document.getElementById('editAssignGroup');
+        if (currentUser.role === 'admin') {
+          editAssignGroup.style.display = 'block';
+        } else {
+          editAssignGroup.style.display = 'none';
+        }
         
         document.getElementById('editModal').style.display = 'block';
       } catch (err) {
@@ -625,5 +702,5 @@
     setInterval(loadTasks, 30000); // Refresh every 30 seconds
     setInterval(loadStats, 30000);
   </script>
-<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1ad6531ee0e5910',t:'MTc4Mzk5OTI2NQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a1add6a03b66c156',t:'MTc4NDAwMzkxMQ=='};var a=document.createElement('script');a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>

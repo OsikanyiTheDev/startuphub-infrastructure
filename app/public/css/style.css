@@ -532,9 +532,91 @@ textarea.form-input {
   gap: 0.75rem;
 }
 
+.user-item .user-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .user-item small {
   color: var(--gray-500);
   font-size: 0.875rem;
+}
+
+.user-item .current-user-badge {
+  background: var(--success);
+  color: var(--white);
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.btn-sm {
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+/* User Performance */
+#userPerformance {
+  margin-top: 2rem;
+}
+
+#userPerformanceList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.user-performance-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--gray-50);
+  border-radius: var(--radius);
+}
+
+.user-performance-info {
+  flex: 0 0 150px;
+  display: flex;
+  flex-direction: column;
+}
+
+.user-performance-info strong {
+  font-size: 0.95rem;
+  color: var(--gray-900);
+}
+
+.user-task-count {
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  margin-top: 0.25rem;
+}
+
+.progress-bar-container {
+  flex: 1;
+  height: 24px;
+  background: var(--gray-200);
+  border-radius: var(--radius);
+  overflow: hidden;
+  position: relative;
+}
+
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  color: var(--white);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 /* Empty State */

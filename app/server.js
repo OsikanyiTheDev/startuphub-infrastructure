@@ -269,16 +269,61 @@ app.post('/users', requireAdmin, async (req, res) => {
   }
 });
 
-// Get all tasks
+// Delete user (admin only)
+app.delete('/users/:id', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = parseInt(id);
+
+    // Prevent deleting yourself
+    if (userId === req.session.userId) {
+      return res.status(400).json({ error: 'Cannot delete your own account' });
+    }
+
+    // Check if user exists
+    const userCheck = await pool.query(
+      'SELECT id, username FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (userCheck.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Delete user
+    await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+
+    res.json({ success: true, message: 'User deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting user:', err.message);
+    res.status(500).json({ error: 'Failed to delete user' });
+  }
+});
+
+// Get all tasks (filtered by user role)
 app.get('/api/tasks', requireAuth, async (req, res) => {
   try {
-    const result = await pool.query(`
+    const isAdmin = req.session.userRole === 'admin';
+    const userId = req.session.userId;
+
+    let query = `
       SELECT t.*, u.username as owner_name, c.username as created_by_name
       FROM tasks t
       LEFT JOIN users u ON t.owner_id = u.id
       LEFT JOIN users c ON t.created_by = c.id
-      ORDER BY t.created_at DESC
-    `);
+    `;
+    
+    let params = [];
+    
+    // Regular users can only see tasks assigned to them
+    if (!isAdmin) {
+      query += ' WHERE t.owner_id = $1';
+      params.push(userId);
+    }
+    
+    query += ' ORDER BY t.created_at DESC';
+
+    const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (err) {
     console.error('Error fetching tasks:', err.message);
@@ -295,6 +340,10 @@ app.post('/api/tasks', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'Title is required' });
     }
 
+    // Only admins can assign tasks to others
+    const isAdmin = req.session.userRole === 'admin';
+    const finalOwnerId = isAdmin ? owner_id : req.session.userId;
+
     const result = await pool.query(`
       INSERT INTO tasks (title, description, status, priority, category, due_date, owner_id, created_by)
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -306,7 +355,7 @@ app.post('/api/tasks', requireAuth, async (req, res) => {
       priority || 'medium',
       category || null,
       due_date || null,
-      owner_id || null,
+      finalOwnerId,
       req.session.userId
     ]);
 
@@ -341,13 +390,16 @@ app.put('/api/tasks/:id', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Not authorized to edit this task' });
     }
 
+    // Only admins can reassign tasks to others
+    const finalOwnerId = isAdmin ? owner_id : task.owner_id;
+
     const result = await pool.query(`
       UPDATE tasks
       SET title = $1, description = $2, status = $3, priority = $4,
           category = $5, due_date = $6, owner_id = $7, updated_at = CURRENT_TIMESTAMP
       WHERE id = $8
       RETURNING *
-    `, [title, description, status, priority, category, due_date, owner_id, id]);
+    `, [title, description, status, priority, category, due_date, finalOwnerId, id]);
 
     res.json(result.rows[0]);
   } catch (err) {
@@ -387,10 +439,14 @@ app.delete('/api/tasks/:id', requireAuth, async (req, res) => {
   }
 });
 
-// Get task stats
+// Get task stats (overall and per-user)
 app.get('/api/stats', requireAuth, async (req, res) => {
   try {
-    const result = await pool.query(`
+    const isAdmin = req.session.userRole === 'admin';
+    const userId = req.session.userId;
+
+    // Overall stats
+    let overallQuery = `
       SELECT
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE status = 'todo') as todo,
@@ -398,8 +454,43 @@ app.get('/api/stats', requireAuth, async (req, res) => {
         COUNT(*) FILTER (WHERE status = 'done') as done,
         COUNT(*) FILTER (WHERE due_date < CURRENT_DATE AND status != 'done') as overdue
       FROM tasks
-    `);
-    res.json(result.rows[0]);
+    `;
+    
+    let overallParams = [];
+    
+    // Regular users only see their own stats
+    if (!isAdmin) {
+      overallQuery += ' WHERE owner_id = $1';
+      overallParams.push(userId);
+    }
+
+    const overallResult = await pool.query(overallQuery, overallParams);
+
+    // Per-user stats (admin only)
+    let userStats = [];
+    if (isAdmin) {
+      const userStatsResult = await pool.query(`
+        SELECT 
+          u.id,
+          u.username,
+          COUNT(t.id) as total_tasks,
+          COUNT(t.id) FILTER (WHERE t.status = 'done') as completed_tasks,
+          CASE 
+            WHEN COUNT(t.id) = 0 THEN 0
+            ELSE ROUND((COUNT(t.id) FILTER (WHERE t.status = 'done')::numeric / COUNT(t.id)::numeric) * 100, 1)
+          END as completion_percentage
+        FROM users u
+        LEFT JOIN tasks t ON u.id = t.owner_id
+        GROUP BY u.id, u.username
+        ORDER BY u.username
+      `);
+      userStats = userStatsResult.rows;
+    }
+
+    res.json({
+      ...overallResult.rows[0],
+      userStats: userStats
+    });
   } catch (err) {
     console.error('Error fetching stats:', err.message);
     res.status(500).json({ error: 'Failed to fetch stats' });
